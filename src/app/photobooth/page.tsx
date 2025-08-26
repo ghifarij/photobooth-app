@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type CaptureState = "idle" | "counting" | "shooting" | "done";
 
 function uuid() {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return (crypto as any).randomUUID();
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
   }
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 export default function PhotoboothPage() {
+  return (
+    <Suspense fallback={<main className="min-h-dvh p-6 flex items-center justify-center">Loading…</main>}>
+      <PhotoboothInner />
+    </Suspense>
+  );
+}
+
+function PhotoboothInner() {
   const params = useSearchParams();
   const router = useRouter();
   const desiredPhotos = Math.max(1, parseInt(params.get("photos") || "1", 10));
@@ -33,6 +42,7 @@ export default function PhotoboothPage() {
   // Setup camera
   useEffect(() => {
     let active = true;
+    let localStream: MediaStream | null = null;
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -43,18 +53,18 @@ export default function PhotoboothPage() {
         const v = videoRef.current;
         if (v) {
           v.srcObject = stream;
+          localStream = stream;
           await v.play();
           setReady(true);
         }
-      } catch (e: any) {
-        setStreamError(e?.message || "Unable to access camera");
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Unable to access camera";
+        setStreamError(message);
       }
     })();
     return () => {
       active = false;
-      const v = videoRef.current;
-      const s = v?.srcObject as MediaStream | undefined;
-      s?.getTracks().forEach((t) => t.stop());
+      localStream?.getTracks().forEach((t) => t.stop());
     };
   }, []);
 
@@ -168,7 +178,9 @@ export default function PhotoboothPage() {
             <div className="text-sm mb-2 font-medium">Preview shots</div>
             <div className="grid grid-cols-3 gap-2">
               {taken.map((t, i) => (
-                <img key={i} src={t} alt={`shot-${i + 1}`} className="w-full h-24 object-cover rounded" />
+                <div key={i} className="relative w-full h-24">
+                  <Image src={t} alt={`shot-${i + 1}`} fill className="object-cover rounded" />
+                </div>
               ))}
             </div>
           </div>

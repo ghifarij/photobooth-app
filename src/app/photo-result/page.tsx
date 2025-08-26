@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import NextImage from "next/image";
 
 type SessionPayload = {
   id: string;
@@ -68,7 +69,6 @@ function composeLayout(
   };
 
   if (layout === "2-vertical") {
-    const cols = 1;
     const rows = 2;
     const cellW = W - pad * 2;
     const cellH = (H - pad * 2 - gap) / rows;
@@ -95,7 +95,6 @@ function composeLayout(
   } else {
     // 3-grid (single row)
     const cols = 3;
-    const rows = 1;
     const cellW = (W - pad * 2 - gap * (cols - 1)) / cols;
     const cellH = H - pad * 2;
     for (let c = 0; c < cols; c++) {
@@ -108,6 +107,14 @@ function composeLayout(
 }
 
 export default function PhotoResultPage() {
+  return (
+    <Suspense fallback={<main className="min-h-dvh p-6 flex items-center justify-center">Loading…</main>}>
+      <PhotoResultInner />
+    </Suspense>
+  );
+}
+
+function PhotoResultInner() {
   const params = useSearchParams();
   const id = params.get("id") || "";
   const presetUrl = params.get("url");
@@ -166,9 +173,10 @@ export default function PhotoResultPage() {
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || "Upload failed");
         setCloudUrl(data.secure_url as string);
-      } catch (e: any) {
+      } catch (e: unknown) {
         // If upload fails, keep local-only option
-        console.error("Cloud upload failed:", e?.message || e);
+        const message = e instanceof Error ? e.message : String(e);
+        console.error("Cloud upload failed:", message);
       } finally {
         setUploading(false);
       }
@@ -228,7 +236,13 @@ export default function PhotoResultPage() {
           <>
             <div className="border rounded-lg overflow-hidden bg-white">
               {presetUrl ? (
-                <img src={presetUrl} alt="Result" className="w-full h-auto" />
+                <NextImage
+                  src={presetUrl}
+                  alt="Result"
+                  width={1200}
+                  height={1800}
+                  className="w-full h-auto"
+                />
               ) : (
                 <canvas ref={canvasRef} className="w-full h-auto" />
               )}
@@ -248,7 +262,7 @@ export default function PhotoResultPage() {
             <div className="pt-4 space-y-2">
               <div className="text-sm opacity-70">Scan to open this result:</div>
               {qrSrc ? (
-                <img src={qrSrc} alt="QR code" className="w-40 h-40" />
+                <NextImage src={qrSrc} alt="QR code" width={200} height={200} className="w-40 h-40" />
               ) : (
                 <div className="text-sm">Generating QR…</div>
               )}

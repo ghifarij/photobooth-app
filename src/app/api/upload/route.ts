@@ -12,7 +12,7 @@ function sha1(input: string) {
 function buildSignature(params: Record<string, string>, apiSecret: string) {
   // Exclude empty values and file/api_key/signature
   const entries = Object.entries(params)
-    .filter(([k, v]) => v !== undefined && v !== null && v !== "")
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   const toSign = entries.map(([k, v]) => `${k}=${v}`).join("&");
   return sha1(`${toSign}${apiSecret}`);
@@ -72,7 +72,8 @@ export async function POST(req: Request) {
       bytes: data.bytes as number,
       format: data.format as string,
     });
-  } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Server error" }, { status: 500 });
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
