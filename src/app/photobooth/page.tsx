@@ -1,0 +1,181 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+type CaptureState = "idle" | "counting" | "shooting" | "done";
+
+function uuid() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return (crypto as any).randomUUID();
+  }
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
+
+export default function PhotoboothPage() {
+  const params = useSearchParams();
+  const router = useRouter();
+  const desiredPhotos = Math.max(1, parseInt(params.get("photos") || "1", 10));
+  const timerSeconds = parseInt(params.get("timer") || "3", 10) as 3 | 5;
+  const layoutId = params.get("layout") || "2-vertical";
+
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const [ready, setReady] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
+  const [captureState, setCaptureState] = useState<CaptureState>("idle");
+  const [countdown, setCountdown] = useState<number>(timerSeconds);
+  const [taken, setTaken] = useState<string[]>([]);
+
+  const remaining = useMemo(() => desiredPhotos - taken.length, [desiredPhotos, taken.length]);
+
+  // Setup camera
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false,
+        });
+        if (!active) return;
+        const v = videoRef.current;
+        if (v) {
+          v.srcObject = stream;
+          await v.play();
+          setReady(true);
+        }
+      } catch (e: any) {
+        setStreamError(e?.message || "Unable to access camera");
+      }
+    })();
+    return () => {
+      active = false;
+      const v = videoRef.current;
+      const s = v?.srcObject as MediaStream | undefined;
+      s?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  // Countdown logic for multiple shots
+  useEffect(() => {
+    if (captureState !== "counting") return;
+    if (countdown <= 0) {
+      setCaptureState("shooting");
+      return;
+    }
+    const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(id);
+  }, [captureState, countdown]);
+
+  // When in shooting phase, capture frame then continue or finish
+  useEffect(() => {
+    if (captureState !== "shooting") return;
+    const v = videoRef.current;
+    const c = canvasRef.current;
+    if (!v || !c) return;
+    const w = v.videoWidth || 1280;
+    const h = v.videoHeight || 720;
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    // Mirror horizontally so the capture matches the preview
+    ctx.save();
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(v, 0, 0, w, h);
+    ctx.restore();
+    const url = c.toDataURL("image/png");
+    setTaken((arr) => [...arr, url]);
+    // Small pause then either next countdown or done
+    setTimeout(() => {
+      if (taken.length + 1 >= desiredPhotos) {
+        setCaptureState("done");
+      } else {
+        setCountdown(timerSeconds);
+        setCaptureState("counting");
+      }
+    }, 300);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captureState]);
+
+  // When done, persist session and go to result
+  useEffect(() => {
+    if (captureState !== "done") return;
+    const id = uuid();
+    const payload = {
+      id,
+      layout: layoutId,
+      photos: taken,
+      timer: timerSeconds,
+      createdAt: Date.now(),
+    };
+    try {
+      localStorage.setItem(`photobooth:session:${id}`, JSON.stringify(payload));
+    } catch {}
+    router.replace(`/photo-result?id=${encodeURIComponent(id)}`);
+  }, [captureState, layoutId, router, taken, timerSeconds]);
+
+  const start = () => {
+    if (!ready) return;
+    setTaken([]);
+    setCountdown(timerSeconds);
+    setCaptureState("counting");
+  };
+
+  const stop = () => {
+    setCaptureState("idle");
+    setCountdown(timerSeconds);
+  };
+
+  return (
+    <main className="min-h-dvh p-4 flex flex-col items-center">
+      <div className="w-full max-w-4xl space-y-4">
+        <h1 className="text-xl font-semibold">Photobooth</h1>
+        {streamError && (
+          <div className="text-red-600 text-sm">{streamError}</div>
+        )}
+
+        <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+          <video ref={videoRef} className="w-full h-full object-cover -scale-x-100" playsInline muted />
+          {captureState === "counting" && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-24 h-24 rounded-full bg-black/60 text-white flex items-center justify-center text-4xl font-bold">
+                {countdown}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="text-sm opacity-70">
+            Layout: <span className="font-medium">{layoutId}</span> • Timer: {timerSeconds}s • Remaining: {remaining}
+          </div>
+          <div className="flex gap-3">
+            {captureState === "idle" && (
+              <button onClick={start} className="px-4 py-2 rounded-md bg-black text-white">Start</button>
+            )}
+            {captureState !== "idle" && captureState !== "done" && (
+              <button onClick={stop} className="px-4 py-2 rounded-md border">Cancel</button>
+            )}
+          </div>
+        </div>
+
+        {taken.length > 0 && (
+          <div className="pt-2">
+            <div className="text-sm mb-2 font-medium">Preview shots</div>
+            <div className="grid grid-cols-3 gap-2">
+              {taken.map((t, i) => (
+                <img key={i} src={t} alt={`shot-${i + 1}`} className="w-full h-24 object-cover rounded" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <canvas ref={canvasRef} className="hidden" />
+      </div>
+    </main>
+  );
+}
