@@ -1,26 +1,11 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import NextImage from "next/image";
+import { loadSession, type SessionPayload } from "../../lib/session";
 
-type SessionPayload = {
-  id: string;
-  layout: string; // "2-vertical" | "3-grid" | "4-grid"
-  photos: string[]; // data URLs
-  timer: 3 | 5;
-  createdAt: number;
-};
-
-function loadSession(id: string): SessionPayload | null {
-  try {
-    const raw = localStorage.getItem(`photobooth:session:${id}`);
-    if (!raw) return null;
-    return JSON.parse(raw) as SessionPayload;
-  } catch {
-    return null;
-  }
-}
+// Session type and async loader moved to shared helper
 
 // Compose the photos into a single canvas according to the chosen layout
 function composeLayout(
@@ -108,7 +93,13 @@ function composeLayout(
 
 export default function PhotoResultPage() {
   return (
-    <Suspense fallback={<main className="min-h-dvh p-6 flex items-center justify-center">Loading…</main>}>
+    <Suspense
+      fallback={
+        <main className="min-h-dvh p-6 flex items-center justify-center">
+          Loading…
+        </main>
+      }
+    >
       <PhotoResultInner />
     </Suspense>
   );
@@ -128,12 +119,16 @@ function PhotoResultInner() {
   useEffect(() => {
     if (presetUrl) return; // If URL provided, skip local session
     if (!id) return;
-    const s = loadSession(id);
-    if (!s) {
-      setError("No session found. The link may be invalid or data is not available on this device.");
-      return;
-    }
-    setSession(s);
+    (async () => {
+      const s = await loadSession(id);
+      if (!s) {
+        setError(
+          "No session found. The link may be invalid or data is not available on this device."
+        );
+        return;
+      }
+      setSession(s);
+    })();
   }, [id, presetUrl]);
 
   // Load images and compose
@@ -201,7 +196,9 @@ function PhotoResultInner() {
       }
       const res = await fetch(finalUrl);
       const blob = await res.blob();
-      const file = new File([blob], `photobooth-${id}.png`, { type: blob.type });
+      const file = new File([blob], `photobooth-${id}.png`, {
+        type: blob.type,
+      });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Photobooth" });
         return;
@@ -209,22 +206,32 @@ function PhotoResultInner() {
     } catch {}
     // Fallback: share the link to this page
     try {
-      await navigator.share({ url: cloudUrl || window.location.href, title: "Photobooth" });
+      await navigator.share({
+        url: cloudUrl || window.location.href,
+        title: "Photobooth",
+      });
     } catch {
       // ignore
     }
   };
 
-  const qrSrc = useMemo(() => {
-    const base = typeof window !== "undefined" ? window.location.origin : "";
+  const [qrSrc, setQrSrc] = useState<string | null>(null);
+
+  // Compute QR only on client to prevent SSR/client hydration mismatch
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const base = window.location.origin;
     const link = cloudUrl
       ? `${base}/photo-result?url=${encodeURIComponent(cloudUrl)}`
       : id
       ? `${base}/photo-result?id=${encodeURIComponent(id)}`
       : null;
-    if (!link) return null;
+    if (!link) {
+      setQrSrc(null);
+      return;
+    }
     const api = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
-    return api;
+    setQrSrc(api);
   }, [id, cloudUrl]);
 
   return (
@@ -249,26 +256,53 @@ function PhotoResultInner() {
             </div>
 
             <div className="flex items-center gap-3">
-              <button onClick={download} disabled={!finalUrl} className="px-4 py-2 rounded-md border">Download</button>
-              <button onClick={share} disabled={!finalUrl} className="px-4 py-2 rounded-md bg-black text-white">Share</button>
-              {uploading && <span className="text-sm opacity-70">Uploading…</span>}
+              <button
+                onClick={download}
+                disabled={!finalUrl}
+                className="px-4 py-2 rounded-md border"
+              >
+                Download
+              </button>
+              <button
+                onClick={share}
+                disabled={!finalUrl}
+                className="px-4 py-2 rounded-md bg-[#4062CB] text-white hover:opacity-90 transition"
+              >
+                Share
+              </button>
+              {uploading && (
+                <span className="text-sm opacity-70">Uploading…</span>
+              )}
               {cloudUrl && (
-                <a href={cloudUrl} target="_blank" rel="noreferrer" className="text-sm underline">
+                <a
+                  href={cloudUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-sm underline"
+                >
                   Open Cloud Link
                 </a>
               )}
             </div>
 
             <div className="pt-4 space-y-2">
-              <div className="text-sm opacity-70">Scan to open this result:</div>
+              <div className="text-sm opacity-70">
+                Scan to open this result:
+              </div>
               {qrSrc ? (
-                <NextImage src={qrSrc} alt="QR code" width={200} height={200} className="w-40 h-40" />
+                <NextImage
+                  src={qrSrc}
+                  alt="QR code"
+                  width={200}
+                  height={200}
+                  className="w-40 h-40"
+                />
               ) : (
                 <div className="text-sm">Generating QR…</div>
               )}
               <div className="text-xs opacity-60">
-                QR opens a cross-device link. If the cloud link is not ready yet,
-                wait for the upload indicator to finish.
+                QR opens a cross-device link. If the cloud link is not ready
+                yet, wait for the upload indicator to finish.
               </div>
             </div>
           </>
