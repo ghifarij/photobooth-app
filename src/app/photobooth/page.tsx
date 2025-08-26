@@ -1,13 +1,17 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { saveSession } from "../../lib/session";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type CaptureState = "idle" | "counting" | "shooting" | "done";
 
 function uuid() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -15,7 +19,13 @@ function uuid() {
 
 export default function PhotoboothPage() {
   return (
-    <Suspense fallback={<main className="min-h-dvh p-6 flex items-center justify-center">Loading…</main>}>
+    <Suspense
+      fallback={
+        <main className="min-h-dvh p-6 flex items-center justify-center">
+          Loading…
+        </main>
+      }
+    >
       <PhotoboothInner />
     </Suspense>
   );
@@ -37,7 +47,10 @@ function PhotoboothInner() {
   const [countdown, setCountdown] = useState<number>(timerSeconds);
   const [taken, setTaken] = useState<string[]>([]);
 
-  const remaining = useMemo(() => desiredPhotos - taken.length, [desiredPhotos, taken.length]);
+  const remaining = useMemo(
+    () => desiredPhotos - taken.length,
+    [desiredPhotos, taken.length]
+  );
 
   // Setup camera
   useEffect(() => {
@@ -46,7 +59,11 @@ function PhotoboothInner() {
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
           audio: false,
         });
         if (!active) return;
@@ -58,7 +75,8 @@ function PhotoboothInner() {
           setReady(true);
         }
       } catch (e: unknown) {
-        const message = e instanceof Error ? e.message : "Unable to access camera";
+        const message =
+          e instanceof Error ? e.message : "Unable to access camera";
         setStreamError(message);
       }
     })();
@@ -97,6 +115,8 @@ function PhotoboothInner() {
     ctx.scale(-1, 1);
     ctx.drawImage(v, 0, 0, w, h);
     ctx.restore();
+    // Use JPEG to significantly reduce size and avoid localStorage quota errors
+    // Preserve original capture fidelity (PNG, no downscaling)
     const url = c.toDataURL("image/png");
     setTaken((arr) => [...arr, url]);
     // Small pause then either next countdown or done
@@ -114,18 +134,25 @@ function PhotoboothInner() {
   // When done, persist session and go to result
   useEffect(() => {
     if (captureState !== "done") return;
-    const id = uuid();
-    const payload = {
-      id,
-      layout: layoutId,
-      photos: taken,
-      timer: timerSeconds,
-      createdAt: Date.now(),
-    };
-    try {
-      localStorage.setItem(`photobooth:session:${id}`, JSON.stringify(payload));
-    } catch {}
-    router.replace(`/photo-result?id=${encodeURIComponent(id)}`);
+    (async () => {
+      const id = uuid();
+      const payload = {
+        id,
+        layout: layoutId,
+        photos: taken,
+        timer: timerSeconds,
+        createdAt: Date.now(),
+      };
+      const ok = await saveSession(payload);
+      if (ok) {
+        router.replace(`/photo-result?id=${encodeURIComponent(id)}`);
+      } else {
+        setStreamError(
+          "Saving failed (storage quota). Consider fewer photos or let me switch to a cloud-only flow."
+        );
+        setCaptureState("idle");
+      }
+    })();
   }, [captureState, layoutId, router, taken, timerSeconds]);
 
   const start = () => {
@@ -149,7 +176,12 @@ function PhotoboothInner() {
         )}
 
         <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
-          <video ref={videoRef} className="w-full h-full object-cover -scale-x-100" playsInline muted />
+          <video
+            ref={videoRef}
+            className="w-full h-full object-cover -scale-x-100"
+            playsInline
+            muted
+          />
           {captureState === "counting" && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-24 h-24 rounded-full bg-black/60 text-white flex items-center justify-center text-4xl font-bold">
@@ -161,14 +193,25 @@ function PhotoboothInner() {
 
         <div className="flex items-center justify-between">
           <div className="text-sm opacity-70">
-            Layout: <span className="font-medium">{layoutId}</span> • Timer: {timerSeconds}s • Remaining: {remaining}
+            Layout: <span className="font-medium">{layoutId}</span> • Timer:{" "}
+            {timerSeconds}s • Remaining: {remaining}
           </div>
           <div className="flex gap-3">
             {captureState === "idle" && (
-              <button onClick={start} className="px-4 py-2 rounded-md bg-black text-white">Start</button>
+              <button
+                onClick={start}
+                className="px-4 py-2 rounded-md bg-[#4062CB] text-white hover:opacity-90 transition"
+              >
+                Start
+              </button>
             )}
             {captureState !== "idle" && captureState !== "done" && (
-              <button onClick={stop} className="px-4 py-2 rounded-md border">Cancel</button>
+              <button
+                onClick={stop}
+                className="px-4 py-2 rounded-md border hover:opacity-90 transition"
+              >
+                Cancel
+              </button>
             )}
           </div>
         </div>
@@ -179,7 +222,12 @@ function PhotoboothInner() {
             <div className="grid grid-cols-3 gap-2">
               {taken.map((t, i) => (
                 <div key={i} className="relative w-full h-24">
-                  <Image src={t} alt={`shot-${i + 1}`} fill className="object-cover rounded" />
+                  <Image
+                    src={t}
+                    alt={`shot-${i + 1}`}
+                    fill
+                    className="object-cover rounded"
+                  />
                 </div>
               ))}
             </div>

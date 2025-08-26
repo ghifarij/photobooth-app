@@ -111,7 +111,7 @@ export default function PhotoLayoutPage() {
           <button
             onClick={go}
             disabled={!canContinue}
-            className="inline-flex items-center justify-center rounded-md bg-black text-white px-6 py-3 text-base font-medium disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-md bg-[#4062CB] text-white px-6 py-3 text-base font-medium disabled:opacity-50 hover:opacity-90 transition"
           >
             Continue
           </button>
