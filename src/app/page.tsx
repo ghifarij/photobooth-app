@@ -20,10 +20,10 @@ export default function Home() {
         </div>
         <p className="text-sm opacity-80">
           Have fun taking photos and instantly compose them into a printable
-          layout. Choose your layout and a countdown timer to get started.
+          strip. Snap three photos, then pick a template.
         </p>
         <Link
-          href="/photo-layout"
+          href="/photobooth"
           className="inline-flex items-center justify-center rounded-md bg-[#4062CB] text-white px-6 py-3 text-base font-medium hover:opacity-90 transition"
         >
           Start

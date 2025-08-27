@@ -34,9 +34,9 @@ export default function PhotoboothPage() {
 function PhotoboothInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const desiredPhotos = Math.max(1, parseInt(params.get("photos") || "1", 10));
+  // Fixed flow: always take 3 photos; choose template after capture
+  const desiredPhotos = 3;
   const timerSeconds = parseInt(params.get("timer") || "3", 10) as 3 | 5;
-  const layoutId = params.get("layout") || "2-vertical";
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -138,14 +138,15 @@ function PhotoboothInner() {
       const id = uuid();
       const payload = {
         id,
-        layout: layoutId,
+        // Temporary template; user will choose in the next step
+        layout: "template-blue",
         photos: taken,
         timer: timerSeconds,
         createdAt: Date.now(),
       };
       const ok = await saveSession(payload);
       if (ok) {
-        router.replace(`/photo-result?id=${encodeURIComponent(id)}`);
+        router.replace(`/photo-layout?id=${encodeURIComponent(id)}`);
       } else {
         setStreamError(
           "Saving failed (storage quota). Consider fewer photos or let me switch to a cloud-only flow."
@@ -153,7 +154,7 @@ function PhotoboothInner() {
         setCaptureState("idle");
       }
     })();
-  }, [captureState, layoutId, router, taken, timerSeconds]);
+  }, [captureState, router, taken, timerSeconds]);
 
   const start = () => {
     if (!ready) return;
@@ -192,10 +193,7 @@ function PhotoboothInner() {
         </div>
 
         <div className="flex items-center justify-between">
-          <div className="text-sm opacity-70">
-            Layout: <span className="font-medium">{layoutId}</span> • Timer:{" "}
-            {timerSeconds}s • Remaining: {remaining}
-          </div>
+          <div className="text-sm opacity-70">Timer: {timerSeconds}s • Remaining: {remaining}</div>
           <div className="flex gap-3">
             {captureState === "idle" && (
               <button

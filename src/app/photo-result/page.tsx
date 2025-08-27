@@ -13,20 +13,28 @@ function composeLayout(
   layout: string,
   photos: HTMLImageElement[]
 ) {
-  // Final print size: 1200x1800 (2:3) for decent quality
-  const W = 1200;
-  const H = 1800;
+  // Final print size: 2x6 (1:3) strip, fairly high-res
+  const W = 800;
+  const H = 2400;
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  // Background white
-  ctx.fillStyle = "#ffffff";
+  // Choose background by template
+  const bg =
+    layout === "template-green"
+      ? "#BBF7D0"
+      : layout === "template-rose"
+      ? "#FBCFE8"
+      : "#BFDBFE"; // template-blue default
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  const pad = 30; // outer padding
-  const gap = 20; // spacing between photos
+  const pad = 40; // outer padding
+  const gap = 24; // spacing between photos
+  const captionH = 140; // space for caption text at bottom
+  const framePad = 10; // white frame around each photo
 
   const drawImageCover = (
     img: HTMLImageElement,
@@ -35,6 +43,14 @@ function composeLayout(
     w: number,
     h: number
   ) => {
+    // Save the current context state
+    ctx.save();
+
+    // Create a clipping rectangle for the image area
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+
     // Cover logic similar to object-fit: cover
     const ir = img.width / img.height;
     const tr = w / h;
@@ -51,44 +67,46 @@ function composeLayout(
     const dx = x + (w - dw) / 2;
     const dy = y + (h - dh) / 2;
     ctx.drawImage(img, dx, dy, dw, dh);
+
+    // Restore the context state (removes clipping)
+    ctx.restore();
   };
 
-  if (layout === "2-vertical") {
-    const rows = 2;
-    const cellW = W - pad * 2;
-    const cellH = (H - pad * 2 - gap) / rows;
-    for (let r = 0; r < rows; r++) {
-      const x = pad;
-      const y = pad + r * (cellH + gap);
-      const img = photos[r];
-      if (img) drawImageCover(img, x, y, cellW, cellH);
-    }
-  } else if (layout === "4-grid") {
-    const cols = 2;
-    const rows = 2;
-    const cellW = (W - pad * 2 - gap) / cols;
-    const cellH = (H - pad * 2 - gap) / rows;
-    let i = 0;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const x = pad + c * (cellW + gap);
-        const y = pad + r * (cellH + gap);
-        const img = photos[i++];
-        if (img) drawImageCover(img, x, y, cellW, cellH);
-      }
-    }
-  } else {
-    // 3-grid (single row)
-    const cols = 3;
-    const cellW = (W - pad * 2 - gap * (cols - 1)) / cols;
-    const cellH = H - pad * 2;
-    for (let c = 0; c < cols; c++) {
-      const x = pad + c * (cellW + gap);
-      const y = pad;
-      const img = photos[c];
-      if (img) drawImageCover(img, x, y, cellW, cellH);
+  // Area for photos (three vertical stack)
+  const areaX = pad;
+  const areaY = pad;
+  const areaW = W - pad * 2;
+  const areaH = H - pad * 2 - captionH;
+  const rows = 3;
+  const cellH = (areaH - gap * (rows - 1)) / rows;
+
+  for (let r = 0; r < rows; r++) {
+    const x = areaX;
+    const y = areaY + r * (cellH + gap);
+
+    // Draw white frame
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(x, y, areaW, cellH);
+
+    // Draw image inside with inner padding (clipped to the inner area)
+    const img = photos[r];
+    if (img) {
+      drawImageCover(
+        img,
+        x + framePad,
+        y + framePad,
+        areaW - framePad * 2,
+        cellH - framePad * 2
+      );
     }
   }
+
+  // Caption text
+  ctx.fillStyle = "#111827"; // neutral-900
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 48px sans-serif";
+  ctx.fillText("Let's make a moment", W / 2, H - pad - captionH / 2);
 }
 
 export default function PhotoResultPage() {
@@ -230,7 +248,9 @@ function PhotoResultInner() {
       setQrSrc(null);
       return;
     }
-    const api = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(link)}`;
+    const api = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+      link
+    )}`;
     setQrSrc(api);
   }, [id, cloudUrl]);
 
@@ -241,17 +261,20 @@ function PhotoResultInner() {
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!error && (
           <>
-            <div className="border rounded-lg overflow-hidden bg-white">
+            <div className="border rounded-lg overflow-hidden bg-white flex items-center justify-center">
               {presetUrl ? (
                 <NextImage
                   src={presetUrl}
                   alt="Result"
                   width={1200}
                   height={1800}
-                  className="w-full h-auto"
+                  className="h-[75dvh] w-auto max-w-full"
                 />
               ) : (
-                <canvas ref={canvasRef} className="w-full h-auto" />
+                <canvas
+                  ref={canvasRef}
+                  className="h-[75dvh] w-auto max-w-full"
+                />
               )}
             </div>
 
