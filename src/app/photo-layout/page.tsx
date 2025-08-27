@@ -1,78 +1,87 @@
 "use client";
 
-import { JSX, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { JSX, Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { updateSession } from "../../lib/session";
 
-type LayoutOption = {
+type TemplateOption = {
   id: string;
   label: string;
-  photos: number;
   preview: JSX.Element;
 };
 
-const options: LayoutOption[] = [
+const PreviewCard = ({ bg }: { bg: string }) => (
+  <div
+    className="w-20 h-60 rounded-md overflow-hidden border flex flex-col items-stretch justify-between"
+    style={{ backgroundColor: bg }}
+  >
+    <div className="p-1 space-y-1 flex-1 flex flex-col">
+      <div className="bg-white/70 rounded-sm h-1/3" />
+      <div className="bg-white/70 rounded-sm h-1/3" />
+      <div className="bg-white/70 rounded-sm h-1/3" />
+    </div>
+    <div className="text-[9px] text-center py-1 font-medium text-black/80">
+      {"Let's make a moment"}
+    </div>
+  </div>
+);
+
+const options: TemplateOption[] = [
   {
-    id: "2-vertical",
-    label: "2 vertical",
-    photos: 2,
-    preview: (
-      <div className="grid grid-rows-2 gap-1 h-24">
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-      </div>
-    ),
+    id: "template-blue",
+    label: "Blue",
+    preview: <PreviewCard bg="#BFDBFE" />,
   },
   {
-    id: "3-grid",
-    label: "3 layout",
-    photos: 3,
-    preview: (
-      <div className="grid grid-cols-3 gap-1 h-24">
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-      </div>
-    ),
+    id: "template-green",
+    label: "Green",
+    preview: <PreviewCard bg="#BBF7D0" />,
   },
   {
-    id: "4-grid",
-    label: "4 layout",
-    photos: 4,
-    preview: (
-      <div className="grid grid-cols-2 grid-rows-2 gap-1 h-24">
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-        <div className="bg-gray-300 rounded" />
-      </div>
-    ),
+    id: "template-rose",
+    label: "Rose",
+    preview: <PreviewCard bg="#FBCFE8" />,
   },
 ];
 
 export default function PhotoLayoutPage() {
-  const router = useRouter();
-  const [selected, setSelected] = useState<LayoutOption>(options[0]);
-  const [timer, setTimer] = useState<3 | 5>(3);
-
-  const canContinue = useMemo(
-    () => Boolean(selected && timer),
-    [selected, timer]
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-dvh p-6 flex items-center justify-center">
+          Loading…
+        </main>
+      }
+    >
+      <PhotoLayoutInner />
+    </Suspense>
   );
+}
 
-  const go = () => {
-    if (!canContinue) return;
-    const params = new URLSearchParams({
-      layout: selected.id,
-      photos: String(selected.photos),
-      timer: String(timer),
-    });
-    router.push(`/photobooth?${params.toString()}`);
+function PhotoLayoutInner() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const id = params.get("id");
+  const [selected, setSelected] = useState<TemplateOption>(options[0]);
+
+  const canContinue = useMemo(() => Boolean(id && selected), [id, selected]);
+
+  const go = async () => {
+    if (!canContinue || !id) return;
+    const ok = await updateSession(id, { layout: selected.id });
+    if (ok) router.push(`/photo-result?id=${encodeURIComponent(id)}`);
   };
 
   return (
     <main className="min-h-dvh p-6 flex flex-col items-center">
       <div className="w-full max-w-3xl space-y-6">
-        <h1 className="text-2xl font-semibold">Choose your layout</h1>
+        <h1 className="text-2xl font-semibold">Choose your template</h1>
+
+        {!id && (
+          <div className="text-sm text-red-600">
+            Missing session. Please retake photos from the home page.
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {options.map((opt) => (
@@ -83,28 +92,10 @@ export default function PhotoLayoutPage() {
                 selected.id === opt.id ? "border-black" : "border-gray-300"
               }`}
             >
-              <div className="w-24">{opt.preview}</div>
+              {opt.preview}
               <div className="font-medium">{opt.label}</div>
-              <div className="text-xs opacity-60">{opt.photos} photos</div>
             </button>
           ))}
-        </div>
-
-        <div className="space-y-2">
-          <div className="font-medium">Timer</div>
-          <div className="flex gap-3">
-            {[3, 5].map((t) => (
-              <button
-                key={t}
-                onClick={() => setTimer(t as 3 | 5)}
-                className={`px-4 py-2 rounded-md border ${
-                  timer === t ? "border-black" : "border-gray-300"
-                }`}
-              >
-                {t}s
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="pt-2">

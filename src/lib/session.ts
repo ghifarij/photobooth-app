@@ -75,3 +75,17 @@ export async function loadSession(id: string): Promise<SessionPayload | null> {
   }
 }
 
+// Update a session with partial fields (e.g., layout after capture)
+export async function updateSession(
+  id: string,
+  patch: Partial<SessionPayload>
+): Promise<boolean> {
+  try {
+    const current = await loadSession(id);
+    if (!current) return false;
+    const updated: SessionPayload = { ...current, ...patch, id: current.id };
+    return await saveSession(updated);
+  } catch {
+    return false;
+  }
+}
