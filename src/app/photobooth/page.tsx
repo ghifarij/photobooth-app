@@ -180,7 +180,7 @@ function PhotoboothInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-5xl 2xl:max-w-7xl space-y-5 2xl:space-y-8">
+      <div className="w-full max-w-4xl 2xl:max-w-7xl space-y-5 2xl:space-y-8">
         {streamError && (
           <div className="text-red-600 text-sm">{streamError}</div>
         )}

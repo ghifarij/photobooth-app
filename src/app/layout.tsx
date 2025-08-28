@@ -30,8 +30,8 @@ export default function RootLayout({
       >
         <Header />
 
-        {/* Add padding to account for fixed header */}
-        <div className="pt-16">
+        {/* Add padding to account for fixed header and grow to push footer */}
+        <div className="pt-16 flex-1">
           <div className="container section">{children}</div>
         </div>
 

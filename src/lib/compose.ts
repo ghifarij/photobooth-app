@@ -7,35 +7,29 @@ export type LayoutId =
 export type ComposeOptions = {
   width?: number;
   height?: number;
+  // Optional brand logo to place in one cell
+  logo?: HTMLImageElement | null;
 };
 
-// Draw a 3-photo vertical strip with template background.
-// Phone-like templates use 4:3 landscape cells; others default to 9:16 portrait cells.
+// Draw a 9:16 template with a 2x2 grid area where 3 photos are placed
+// and 1 remaining slot (left-side slot) is reserved for the Assessio logo.
 export function composeStrip(
   canvas: HTMLCanvasElement,
   layout: LayoutId,
   photos: HTMLImageElement[] | null,
   opts: ComposeOptions = {}
 ) {
-  const W = opts.width ?? 800;
-  const H = opts.height ?? 2400;
+  // Enforce 9:16 canvas by default
+  const W = opts.width ?? 1080;
+  const H = opts.height ?? 1920;
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
   // Helpers per-template
-  const isPhoneLike =
-    layout === "template-phone" ||
-    layout === "template-phone-pastel" ||
-    layout === "template-phone-dark";
-
-  const targetRatio = isPhoneLike ? 4 / 3 : 9 / 16;
-
-  const pad = Math.round(H * (isPhoneLike ? 0.012 : 0.016667));
-  const gap = Math.round(H * (isPhoneLike ? 0.008 : 0.01));
-  const captionH = isPhoneLike ? Math.round(H * 0.04) : Math.round(H * 0.0583);
-  const radius = Math.max(2, Math.round(H * (isPhoneLike ? 0.006 : 0.008)));
+  const pad = Math.round(H * 0.04); // outer padding
+  const gap = Math.round(H * 0.02); // gap between cells
 
   // Background per template
   const drawBackground = () => {
@@ -75,17 +69,15 @@ export function composeStrip(
   };
   drawBackground();
 
-  // Area for photos
+  // Single-column, 4-row vertical stack
   const areaX = pad;
   const areaY = pad;
   const areaW = W - pad * 2;
-  const areaH = H - pad * 2 - captionH;
-  const rows = 3;
-  const maxCellH = (areaH - gap * (rows - 1)) / rows;
-  const cellWByHeight = maxCellH * targetRatio;
-  const cellW = Math.min(areaW, cellWByHeight);
-  const cellH = cellW / targetRatio;
-  const offsetX = areaX + (areaW - cellW) / 2;
+  const areaH = H - pad * 2;
+  const cols = 1;
+  const rows = 4;
+  const cellW = areaW;
+  const cellH = (areaH - gap * (rows - 1)) / rows;
 
   const drawImageContain = (
     img: HTMLImageElement,
@@ -110,58 +102,169 @@ export function composeStrip(
     ctx.drawImage(img, dx, dy, dw, dh);
   };
 
-  // Draw each cell with subtle border depending on template
+  // Determine which cell is reserved for the logo
+  // Order (single column): indices 0,1,2,3 from top to bottom
+  // Place logo at the bottom slot (index 3)
+  const logoCellIndex = 3; // bottom position
+  const positions: Array<{ x: number; y: number }> = [];
   for (let r = 0; r < rows; r++) {
-    const x = offsetX;
+    const x = areaX;
     const y = areaY + r * (cellH + gap);
-    const img = photos?.[r];
-    if (img) {
-      ctx.save();
-
-      if (layout === "template-phone") {
-        ctx.strokeStyle = "#d4d4d4";
-        ctx.lineWidth = Math.max(1, Math.round(W * 0.004));
-      } else if (layout === "template-phone-pastel") {
-        ctx.strokeStyle = "#e5e7eb";
-        ctx.lineWidth = Math.max(1, Math.round(W * 0.004));
-      } else if (layout === "template-phone-dark") {
-        ctx.strokeStyle = "#f3f4f6";
-        ctx.lineWidth = Math.max(1, Math.round(W * 0.004));
-      }
-
-      // Rounded-rect clip and optional border
-      ctx.beginPath();
-      ctx.moveTo(x + radius, y);
-      ctx.lineTo(x + cellW - radius, y);
-      ctx.quadraticCurveTo(x + cellW, y, x + cellW, y + radius);
-      ctx.lineTo(x + cellW, y + cellH - radius);
-      ctx.quadraticCurveTo(x + cellW, y + cellH, x + cellW - radius, y + cellH);
-      ctx.lineTo(x + radius, y + cellH);
-      ctx.quadraticCurveTo(x, y + cellH, x, y + cellH - radius);
-      ctx.lineTo(x, y + radius);
-      ctx.quadraticCurveTo(x, y, x + radius, y);
-      ctx.closePath();
-      if (isPhoneLike) ctx.stroke();
-      ctx.clip();
-
-      drawImageContain(img, x, y, cellW, cellH);
-      ctx.restore();
-    }
+    positions.push({ x, y });
   }
 
-  // Caption
-  ctx.fillStyle = layout === "template-phone-dark" ? "#e5e7eb" : "#111827";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  const fontPx = Math.round(H * (isPhoneLike ? 0.018 : 0.02));
-  ctx.font = `bold ${fontPx}px sans-serif`;
-  const caption =
-    layout === "template-phone"
-      ? "Phone Print"
-      : layout === "template-phone-pastel"
-      ? "Pastel Print"
-      : layout === "template-phone-dark"
-      ? "Darkroom Print"
-      : "Photo Strip";
-  ctx.fillText(caption, W / 2, H - pad - captionH / 2);
+  // Draw logo if provided
+  const logo = opts.logo || null;
+  {
+    // Always render the right text block; logo is optional
+    const { x, y } = positions[logoCellIndex];
+    ctx.save();
+    // Vertical paddings
+    const padInner = Math.round(Math.min(cellW, cellH) * 0.10);
+    const colGap = Math.round(cellW * 0.04);
+    const innerY = y + padInner;
+    const innerH = cellH - padInner * 2;
+
+    // Initial estimates
+    let leftW = Math.round((cellW - colGap) * 0.24); // smaller logo column
+    const leftH = innerH;
+
+    // Compute text sizes: make heading only slightly larger than sub
+    let subPx = Math.max(16, Math.round(innerH * 0.22));
+    let headingPx = Math.max(18, Math.round(subPx * 1.10)); // ~10% larger
+    const lineGap = Math.round(innerH * 0.08);
+
+    // Prepare colors and font
+    const isDark = layout === "template-phone-dark";
+    const color = isDark ? "#D1D9F2" : "#0D2260";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    const heading = "EXHIBITION DAY";
+    const sub = "Assessio @ 2025";
+
+    // Measure text to calculate used width (keep text sizes as-is)
+    ctx.font = `800 ${headingPx}px sans-serif`;
+    let headingW = ctx.measureText(heading).width;
+    ctx.font = `600 ${subPx}px sans-serif`;
+    let subW = ctx.measureText(sub).width;
+
+    // Fit both within right column width by scaling down uniformly if needed
+    const rightMax = cellW - Math.round(Math.min(cellW, cellH) * 0.10) * 2 - leftW - colGap; // approximate available
+    let maxW = Math.max(headingW, subW);
+    if (maxW > rightMax && maxW > 0) {
+      const f = rightMax / maxW;
+      headingPx = Math.max(12, Math.floor(headingPx * f));
+      subPx = Math.max(11, Math.floor(subPx * f));
+      ctx.font = `800 ${headingPx}px sans-serif`;
+      headingW = ctx.measureText(heading).width;
+      ctx.font = `600 ${subPx}px sans-serif`;
+      subW = ctx.measureText(sub).width;
+      maxW = Math.max(headingW, subW);
+    }
+
+    // Nudge sizes to make visual lengths similar while keeping heading slightly larger
+    for (let i = 0; i < 3; i++) {
+      const diff = Math.abs(headingW - subW);
+      const avg = (headingW + subW) / 2;
+      if (avg === 0) break;
+      const delta = diff / avg;
+      if (delta <= 0.06) break; // within 6% considered same length
+      if (headingW < subW) {
+        headingPx = Math.min(headingPx + 1, headingPx * 1.06);
+      } else {
+        subPx = Math.min(subPx + 1, subPx * 1.06);
+      }
+      // Re-measure and ensure not exceeding rightMax
+      ctx.font = `800 ${Math.floor(headingPx)}px sans-serif`;
+      headingW = ctx.measureText(heading).width;
+      ctx.font = `600 ${Math.floor(subPx)}px sans-serif`;
+      subW = ctx.measureText(sub).width;
+      const newMax = Math.max(headingW, subW);
+      if (newMax > rightMax && newMax > 0) {
+        const f2 = rightMax / newMax;
+        headingPx = Math.floor(headingPx * f2);
+        subPx = Math.floor(subPx * f2);
+        ctx.font = `800 ${headingPx}px sans-serif`;
+        headingW = ctx.measureText(heading).width;
+        ctx.font = `600 ${subPx}px sans-serif`;
+        subW = ctx.measureText(sub).width;
+      }
+    }
+
+    // Ensure heading font remains slightly larger than sub font
+    if (headingPx < subPx * 1.04) {
+      headingPx = Math.ceil(subPx * 1.06);
+      ctx.font = `800 ${headingPx}px sans-serif`;
+      headingW = ctx.measureText(heading).width;
+      if (headingW > rightMax && headingW > 0) {
+        const f3 = rightMax / headingW;
+        headingPx = Math.floor(headingPx * f3);
+        subPx = Math.floor(subPx * f3);
+      }
+    }
+
+    // Recompute widths after final sizes
+    ctx.font = `800 ${headingPx}px sans-serif`;
+    headingW = ctx.measureText(heading).width;
+    ctx.font = `600 ${subPx}px sans-serif`;
+    subW = ctx.measureText(sub).width;
+    const rightUsed = Math.max(headingW, subW);
+
+    // Keep text sizes fixed; if overflow, reduce logo column instead
+    const maxGroupW = cellW - padInner * 2; // symmetrical side padding
+    const neededForText = rightUsed + colGap;
+    if (neededForText > maxGroupW) {
+      // If even text+gap exceed available space, let it overflow slightly centered
+      leftW = 0;
+    } else if (leftW + neededForText > maxGroupW) {
+      leftW = Math.max(0, maxGroupW - neededForText);
+    }
+
+    // Now center the content group horizontally
+    const contentW = leftW + colGap + rightUsed;
+    const offsetX = x + (cellW - contentW) / 2;
+    const leftX = offsetX;
+    const rightX = leftX + leftW + colGap;
+
+    // Baselines for text
+    const totalTextH = headingPx + lineGap + subPx;
+    let ty = innerY + (innerH - totalTextH) / 2 + headingPx;
+
+    // Draw logo sized to match text height (slightly smaller for balance)
+    if (logo) {
+      const desiredH = Math.round(totalTextH); // match combined text height
+      const boxW = leftW;
+      const boxH = Math.min(leftH, Math.round(desiredH));
+      const bx = leftX; // left aligned
+      const by = innerY + (leftH - boxH) / 2;
+      drawImageContain(logo, bx, by, boxW, boxH);
+    }
+
+    // Draw heading
+    ctx.fillStyle = color;
+    ctx.font = `800 ${headingPx}px sans-serif`;
+    ctx.fillText(heading, rightX, ty);
+
+    // Draw sub
+    ty += lineGap + subPx;
+    ctx.font = `600 ${subPx}px sans-serif`;
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = color;
+    ctx.fillText(sub, rightX, ty);
+    ctx.restore();
+
+    ctx.restore();
+  }
+
+  // Draw up to 3 photos in remaining cells (skip the logo cell)
+  let pIndex = 0;
+  for (let i = 0; i < positions.length; i++) {
+    if (i === logoCellIndex) continue;
+    const img = photos?.[pIndex++];
+    if (!img) continue;
+    const { x, y } = positions[i];
+    drawImageContain(img, x, y, cellW, cellH);
+    if (pIndex >= 3) break; // only place 3 photos
+  }
 }
