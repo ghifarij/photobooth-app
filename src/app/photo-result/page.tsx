@@ -34,7 +34,7 @@ function PhotoResultInner() {
   const [finalUrl, setFinalUrl] = useState<string | null>(presetUrl || null);
   const [cloudUrl, setCloudUrl] = useState<string | null>(presetUrl || null);
   const [uploading, setUploading] = useState(false);
-  const [logo, setLogo] = useState<HTMLImageElement | null>(null);
+  const [bg, setBg] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
     if (presetUrl) return; // If URL provided, skip local session
@@ -51,15 +51,16 @@ function PhotoResultInner() {
     })();
   }, [id, presetUrl]);
 
-  // Preload logo once we know the session/layout
+  // Preload photostrip background once we know the session/layout
   useEffect(() => {
     if (!session) return; // wait for session so we pick the right asset
-    const li = new Image();
-    li.onload = () => setLogo(li);
-    li.src =
-      session.layout === "template-phone-dark"
-        ? "/AssessioDarkMode.png"
-        : "/AssessioLightMode.png";
+    if (typeof session.layout === "string") {
+      const bi = new Image();
+      bi.onload = () => setBg(bi);
+      bi.src = `/${session.layout}.png`;
+    } else {
+      setBg(null);
+    }
   }, [session]);
 
   // Load images and compose
@@ -67,8 +68,8 @@ function PhotoResultInner() {
     (async () => {
       if (presetUrl) return; // pre-set URL, nothing to compose
       if (!session) return;
-      // Ensure brand logo is loaded to avoid composing with a wrong default
-      if (!logo) return;
+      // Ensure background is loaded
+      if (!bg) return;
       const images: HTMLImageElement[] = await Promise.all(
         session.photos.map(
           (src) =>
@@ -81,14 +82,14 @@ function PhotoResultInner() {
       );
       const canvas = canvasRef.current!;
       composeStrip(canvas, session.layout, images, {
-        width: 1080,
-        height: 1920,
-        logo,
+        width: 1575,
+        height: 4725,
+        background: bg,
       });
       const url = canvas.toDataURL("image/png");
       setFinalUrl(url);
     })();
-  }, [session, presetUrl, logo]);
+  }, [session, presetUrl, bg]);
 
   // Upload composed image to Cloudinary once available
   useEffect(() => {
@@ -184,8 +185,8 @@ function PhotoResultInner() {
                   <NextImage
                     src={presetUrl}
                     alt="Result"
-                    width={1080}
-                    height={1920}
+                    width={1575}
+                    height={4725}
                     className="h-[75dvh] 2xl:h-[82dvh] w-auto max-w-full media"
                   />
                 ) : (
