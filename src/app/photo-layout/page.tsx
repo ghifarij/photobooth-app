@@ -128,11 +128,6 @@ function PreviewStrip({
     return <PreviewShell variant={variant} />;
   }
 
-  const isPhone =
-    layout === "template-phone" ||
-    layout === "template-phone-pastel" ||
-    layout === "template-phone-dark";
-
   return (
     <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border-2 flex items-center justify-center bg-gray-50">
       <canvas ref={ref} className="w-full h-full object-contain" />
