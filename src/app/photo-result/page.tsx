@@ -164,7 +164,7 @@ function PhotoResultInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-5xl space-y-5">
+      <div className="w-full max-w-5xl 2xl:max-w-7xl space-y-5 2xl:space-y-8">
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!error && (
           <div className="card overflow-hidden p-4 md:p-6">
@@ -176,39 +176,39 @@ function PhotoResultInner() {
                     alt="Result"
                     width={1200}
                     height={1800}
-                    className="h-[75dvh] w-auto max-w-full media"
+                    className="h-[75dvh] 2xl:h-[82dvh] w-auto max-w-full media"
                   />
                 ) : (
                   <canvas
                     ref={canvasRef}
-                    className="h-[75dvh] w-auto max-w-full media"
+                    className="h-[75dvh] 2xl:h-[82dvh] w-auto max-w-full media"
                   />
                 )}
               </div>
 
-              <div className="w-full md:w-80 shrink-0 flex flex-col gap-3">
+              <div className="w-full md:w-80 2xl:w-96 shrink-0 flex flex-col gap-3">
                 <div className="flex flex-col gap-2">
                   <button
                     onClick={download}
                     disabled={!finalUrl}
-                    className="btn btn-primary px-4 py-3 hover:-translate-y-px"
+                    className="btn btn-primary px-4 py-3 2xl:px-6 2xl:py-4 hover:-translate-y-px"
                   >
                     Download
                   </button>
                   <button
                     onClick={share}
                     disabled={!finalUrl}
-                    className="btn btn-ghost px-4 py-3 hover:-translate-y-px"
+                    className="btn btn-ghost px-4 py-3 2xl:px-6 2xl:py-4 hover:-translate-y-px"
                   >
                     Share
                   </button>
                 </div>
 
                 {/* QR card: centered content, consistent styling */}
-                <div className="card w-full p-4 md:p-5 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out">
+                <div className="card w-full p-4 md:p-5 2xl:p-6 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out">
                   <div className="flex flex-col items-center text-center gap-3">
                     <div className="text-sm muted">Scan to open this result</div>
-                    <div className="w-40 h-40 bg-white border border-[var(--border)] rounded flex items-center justify-center overflow-hidden">
+                    <div className="w-40 h-40 2xl:w-48 2xl:h-48 bg-white border border-[var(--border)] rounded flex items-center justify-center overflow-hidden">
                       {!uploading && qrSrc ? (
                         <NextImage
                           src={qrSrc}
@@ -229,7 +229,7 @@ function PhotoResultInner() {
                 <div className="hidden md:flex flex-1 items-center">
                   <Link
                     href="/photobooth"
-                    className="group card w-full p-4 md:p-5 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out"
+                    className="group card w-full p-4 md:p-5 2xl:p-6 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out"
                   >
                     <div className="flex flex-col items-center text-center gap-3">
                       <div className="w-12 h-12 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center shadow-sm transition-colors">

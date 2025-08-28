@@ -3,7 +3,7 @@
 /* Design tokens inspired by Framer aesthetics */
 :root {
   --background: #f8fafc; /* base canvas */
-  --foreground: #0f172a; /* slate-900 */
+  --foreground: #0D2260; /* updated primary text color */
   --muted: #475569; /* slate-600 */
   --surface: #ffffff; /* card surface */
   --surface-2: #f1f5f9; /* subtle surface */
@@ -115,12 +115,20 @@ body {
 .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .btn-primary {
-  background: var(--accent);
-  color: var(--accent-foreground);
-  box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 26%, transparent);
+  background: #112D80; /* light mode */
+  color: #ffffff;
+  box-shadow: 0 6px 20px color-mix(in srgb, #112D80 26%, transparent);
 }
 .btn-primary:hover { transform: translateY(-1px); }
 .btn-primary:active { transform: translateY(0); }
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary {
+    background: #D1D9F2; /* dark mode */
+    color: #0D2260;
+    box-shadow: 0 6px 20px color-mix(in srgb, #0D2260 20%, transparent);
+  }
+}
 
 .btn-ghost {
   background: transparent;
@@ -160,4 +168,15 @@ a:hover { opacity: 0.9; }
   50% { opacity: 0.85; }
   75% { opacity: 0.3; }
   100% { opacity: 0; }
+}
+
+/* Large displays (Studio Display and above) */
+@media (min-width: 1536px) { /* 2xl breakpoint */
+  html { font-size: 112.5%; } /* ~18px base */
+  .container { max-width: 1400px; }
+}
+
+@media (min-width: 2200px) {
+  html { font-size: 125%; } /* ~20px base */
+  .container { max-width: 1600px; }
 }
