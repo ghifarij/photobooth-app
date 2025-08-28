@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Header from "./components/Header";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +26,20 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased page`}
       >
-        {children}
+        <Header />
+
+        {/* Add padding to account for fixed header */}
+        <div className="pt-16">
+          <div className="container section">{children}</div>
+        </div>
+
+        <footer className="container section flex justify-center">
+          <div className="text-xs muted">
+            © {new Date().getFullYear()} Assessio
+          </div>
+        </footer>
       </body>
     </html>
   );
