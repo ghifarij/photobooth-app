@@ -2,7 +2,6 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { saveSession } from "../../lib/session";
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
 type CaptureState = "idle" | "counting" | "shooting" | "done";
@@ -21,9 +20,7 @@ export default function PhotoboothPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-dvh p-6 flex items-center justify-center">
-          Loading…
-        </main>
+        <main className="flex items-center justify-center">Loading…</main>
       }
     >
       <PhotoboothInner />
@@ -139,7 +136,7 @@ function PhotoboothInner() {
       const payload = {
         id,
         // Temporary template; user will choose in the next step
-        layout: "template-blue",
+        layout: "template-phone",
         photos: taken,
         timer: timerSeconds,
         createdAt: Date.now(),
@@ -169,14 +166,13 @@ function PhotoboothInner() {
   };
 
   return (
-    <main className="min-h-dvh p-4 flex flex-col items-center">
-      <div className="w-full max-w-4xl space-y-4">
-        <h1 className="text-xl font-semibold">Photobooth</h1>
+    <main className="flex flex-col items-center">
+      <div className="w-full max-w-4xl space-y-5">
         {streamError && (
           <div className="text-red-600 text-sm">{streamError}</div>
         )}
 
-        <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+        <div className="relative w-full aspect-video card media">
           <video
             ref={videoRef}
             className="w-full h-full object-cover -scale-x-100"
@@ -192,45 +188,25 @@ function PhotoboothInner() {
           )}
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="text-sm opacity-70">Timer: {timerSeconds}s • Remaining: {remaining}</div>
+        <div className="flex flex-col gap-2 items-center justify-center">
           <div className="flex gap-3">
             {captureState === "idle" && (
-              <button
-                onClick={start}
-                className="px-4 py-2 rounded-md bg-[#4062CB] text-white hover:opacity-90 transition"
-              >
+              <button onClick={start} className="btn btn-primary w-80">
                 Start
               </button>
             )}
             {captureState !== "idle" && captureState !== "done" && (
-              <button
-                onClick={stop}
-                className="px-4 py-2 rounded-md border hover:opacity-90 transition"
-              >
+              <button onClick={stop} className="btn btn-ghost w-80">
                 Cancel
               </button>
             )}
           </div>
+          <div className="text-sm muted">
+            Timer: {timerSeconds}s • Remaining: {remaining}
+          </div>
         </div>
 
-        {taken.length > 0 && (
-          <div className="pt-2">
-            <div className="text-sm mb-2 font-medium">Preview shots</div>
-            <div className="grid grid-cols-3 gap-2">
-              {taken.map((t, i) => (
-                <div key={i} className="relative w-full h-24">
-                  <Image
-                    src={t}
-                    alt={`shot-${i + 1}`}
-                    fill
-                    className="object-cover rounded"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Preview shots removed intentionally */}
 
         <canvas ref={canvasRef} className="hidden" />
       </div>
