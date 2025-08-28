@@ -111,9 +111,10 @@ function PreviewStrip({
       layout === "template-phone" ||
       layout === "template-phone-pastel" ||
       layout === "template-phone-dark";
-    // Increase preview size significantly for better visibility
-    const w = 400;
-    const h = isPhone ? Math.round((4 / 3) * w) : 800;
+    // Increase preview base size on very large screens
+    const vw = typeof window !== "undefined" ? window.innerWidth : 0;
+    const w = vw >= 1536 ? 600 : 400;
+    const h = isPhone ? Math.round((4 / 3) * w) : vw >= 1536 ? 1200 : 800;
     composeStrip(c, layout, imgs, { width: w, height: h });
   }, [layout, imgs]);
 
@@ -204,7 +205,7 @@ function PhotoLayoutInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-6xl space-y-8">
+      <div className="w-full max-w-6xl 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
         <h1 className="heading-2 text-center">Choose your template</h1>
 
         {!id && (
@@ -218,12 +219,12 @@ function PhotoLayoutInner() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 2xl:gap-10">
           {options.map((opt) => (
             <button
               key={opt.id}
               onClick={() => setSelected(opt)}
-              className={`card p-6 flex flex-col items-center gap-4 transition-all duration-200 text-left hover:shadow-lg transform hover:-translate-y-1 min-h-[400px] ${
+              className={`card p-6 2xl:p-8 flex flex-col items-center gap-4 transition-all duration-200 text-left hover:shadow-lg transform hover:-translate-y-1 min-h-[400px] 2xl:min-h-[520px] ${
                 selected.id === opt.id
                   ? "is-selected ring-4 ring-blue-500 bg-blue-50"
                   : "hover:bg-gray-50"
@@ -244,7 +245,7 @@ function PhotoLayoutInner() {
           <button
             onClick={go}
             disabled={!canContinue}
-            className="btn btn-primary"
+            className="btn btn-primary px-6 py-3 2xl:px-8 2xl:py-4"
           >
             Continue
           </button>

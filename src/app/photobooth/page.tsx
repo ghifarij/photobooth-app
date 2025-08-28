@@ -180,7 +180,7 @@ function PhotoboothInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-4xl space-y-5">
+      <div className="w-full max-w-5xl 2xl:max-w-7xl space-y-5 2xl:space-y-8">
         {streamError && (
           <div className="text-red-600 text-sm">{streamError}</div>
         )}
@@ -195,7 +195,7 @@ function PhotoboothInner() {
           {/* Countdown bubble */}
           {captureState === "counting" && (
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-24 h-24 rounded-full bg-black/60 text-white flex items-center justify-center text-4xl font-bold">
+              <div className="w-24 h-24 2xl:w-32 2xl:h-32 rounded-full bg-black/60 text-white flex items-center justify-center text-4xl 2xl:text-5xl font-bold">
                 {countdown}
               </div>
             </div>
@@ -207,19 +207,19 @@ function PhotoboothInner() {
         </div>
 
         <div className="flex flex-col gap-2 items-center justify-center">
-          <div className="flex gap-3">
+          <div className="flex gap-3 2xl:gap-4">
             {captureState === "idle" && (
-              <button onClick={start} className="btn btn-primary w-80">
+              <button onClick={start} className="btn btn-primary w-80 2xl:w-96">
                 Start
               </button>
             )}
             {captureState !== "idle" && captureState !== "done" && (
-              <button onClick={stop} className="btn btn-ghost w-80">
+              <button onClick={stop} className="btn btn-ghost w-80 2xl:w-96">
                 Cancel
               </button>
             )}
           </div>
-          <div className="text-sm muted">
+          <div className="text-sm 2xl:text-base muted">
             Timer: {timerSeconds}s • Remaining: {remaining}
           </div>
         </div>
