@@ -273,19 +273,19 @@ export function composeStrip(
 
   const slots = opts.background ? detectSlots(opts.background) : [];
 
-  // New: Pixel-level replacement using template transparency/gray mask when background exists
+  // New: Pixel-level replacement using template transparency + conservative gray-border handling
   if (opts.background) {
     // First draw background as already done above, then read pixels
     const imgData = ctx.getImageData(0, 0, W, H);
     const data = imgData.data;
     const N = W * H;
 
-    // Build candidate mask: transparent OR light gray neutral
-    const mask = new Uint8Array(N);
+    // Build candidate mask for region detection only (kept broader to remain robust)
+    const detectMask = new Uint8Array(N);
     const alphaThr = 10; // near transparent
-    const grayMin = 110;
-    const grayMax = 190;
-    const chromaMax = 22; // max channel difference to consider gray
+    const broadGrayMin = 110;
+    const broadGrayMax = 190;
+    const broadChromaMax = 22; // max channel difference to consider gray
     for (let i = 0; i < N; i++) {
       const o = i * 4;
       const r = data[o];
@@ -295,8 +295,16 @@ export function composeStrip(
       const maxCh = Math.max(r, g, b);
       const minCh = Math.min(r, g, b);
       const isTransparent = a <= alphaThr;
-      const isGray = a >= 200 && maxCh - minCh <= chromaMax && r >= grayMin && r <= grayMax && g >= grayMin && g <= grayMax && b >= grayMin && b <= grayMax;
-      mask[i] = isTransparent || isGray ? 1 : 0;
+      const isBroadGray =
+        a >= 200 &&
+        maxCh - minCh <= broadChromaMax &&
+        r >= broadGrayMin &&
+        r <= broadGrayMax &&
+        g >= broadGrayMin &&
+        g <= broadGrayMax &&
+        b >= broadGrayMin &&
+        b <= broadGrayMax;
+      detectMask[i] = isTransparent || isBroadGray ? 1 : 0;
     }
 
     // Detect up to 3 vertical slot rectangles from the mask
@@ -308,7 +316,7 @@ export function composeStrip(
       for (let y = 0; y < H; y++) {
         let c = 0;
         for (let x = leftMargin; x < rightMargin; x++) {
-          if (mask[y * W + x]) c++;
+          if (detectMask[y * W + x]) c++;
         }
         isBand[y] = c / widthSpan > 0.5; // majority of the row is candidate
       }
@@ -335,7 +343,7 @@ export function composeStrip(
         for (let x = 0; x < W; x++) {
           let c = 0;
           for (let y = band.top; y <= band.bottom; y++) {
-            if (mask[y * W + x]) c++;
+            if (detectMask[y * W + x]) c++;
           }
           if (c / bandH > 0.5) {
             if (left === -1) left = x;
@@ -368,19 +376,35 @@ export function composeStrip(
 
     const rects = detectRectsFromMask();
     if (rects.length >= 1 && photos && photos.length) {
-      // Replace pixels inside mask for up to 3 regions
+      // Conservative pixel replacement: fill transparent areas, then erode into thin gray borders
       const regions = rects.slice(0, 3);
+
+      // Helpers for narrow gray and color distance
+      const isNarrowGray = (r: number, g: number, b: number) => {
+        const maxCh = Math.max(r, g, b);
+        const minCh = Math.min(r, g, b);
+        return (
+          maxCh - minCh <= 12 && // low chroma
+          r >= 180 && r <= 200 &&
+          g >= 180 && g <= 200 &&
+          b >= 180 && b <= 200
+        );
+      };
+      const colorDist = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) =>
+        Math.max(Math.abs(r1 - r2), Math.abs(g1 - g2), Math.abs(b1 - b2));
+
+      let anyDrew = false;
       for (let i = 0; i < regions.length; i++) {
         const img = photos[i];
         if (!img) break;
         const r = regions[i];
-        // Draw photo to offscreen at cover size to region dims
+
+        // Prepare photo buffer sized to region using cover fit
         const off = document.createElement("canvas");
         off.width = r.w;
         off.height = r.h;
         const octx = off.getContext("2d");
         if (!octx) continue;
-        // Cover fit
         const scale = Math.max(r.w / img.width, r.h / img.height);
         const dw = Math.ceil(img.width * scale);
         const dh = Math.ceil(img.height * scale);
@@ -389,7 +413,10 @@ export function composeStrip(
         octx.drawImage(img, dx, dy, dw, dh);
         const photoData = octx.getImageData(0, 0, r.w, r.h).data;
 
-        // Blit only where mask=1
+        // Track which pixels we replace in this region
+        const replaced = new Uint8Array(r.w * r.h);
+
+        // Step 1: place photo into main transparent area only
         for (let yy = 0; yy < r.h; yy++) {
           const cy = r.y + yy;
           const rowOffCanvas = cy * W;
@@ -397,18 +424,131 @@ export function composeStrip(
           for (let xx = 0; xx < r.w; xx++) {
             const cx = r.x + xx;
             const idxCanvas = rowOffCanvas + cx;
-            if (!mask[idxCanvas]) continue; // keep decorative pixels intact
             const oC = idxCanvas * 4;
+            const a = data[oC + 3];
+            if (a > alphaThr) continue;
             const oP = (rowOffPhoto + xx) * 4;
             data[oC] = photoData[oP];
             data[oC + 1] = photoData[oP + 1];
             data[oC + 2] = photoData[oP + 2];
             data[oC + 3] = photoData[oP + 3];
+            replaced[yy * r.w + xx] = 1;
+            anyDrew = true;
           }
         }
+
+        // Early continue if nothing was placed (no transparency) — fall back to geometric draw later
+        const anyPlaced = replaced.some((v) => v === 1);
+        if (!anyPlaced) continue;
+
+        // Estimate border color from a 1px inner ring near the region edges
+        let sumR = 0,
+          sumG = 0,
+          sumB = 0,
+          cnt = 0;
+        const sampleRing = (xx: number, yy: number) => {
+          const cx = r.x + xx;
+          const cy = r.y + yy;
+          const o = (cy * W + cx) * 4;
+          const a = data[o + 3];
+          if (a <= 200) return; // skip transparent/semis
+          const R = data[o];
+          const G = data[o + 1];
+          const B = data[o + 2];
+          // consider only plausible gray tones to avoid colored decor
+          if (Math.max(R, G, B) - Math.min(R, G, B) <= 16 && R >= 170 && R <= 210 && G >= 170 && G <= 210 && B >= 170 && B <= 210) {
+            sumR += R;
+            sumG += G;
+            sumB += B;
+            cnt++;
+          }
+        };
+        for (let x = 0; x < r.w; x++) {
+          sampleRing(x, 0);
+          sampleRing(x, r.h - 1);
+        }
+        for (let y = 0; y < r.h; y++) {
+          sampleRing(0, y);
+          sampleRing(r.w - 1, y);
+        }
+        const avgR = cnt ? Math.round(sumR / cnt) : 190;
+        const avgG = cnt ? Math.round(sumG / cnt) : 190;
+        const avgB = cnt ? Math.round(sumB / cnt) : 190;
+
+        // Step 2: iterative border erosion outward from photo edges into narrow gray band
+        const radiusLimit = 3; // boundary-aware radius from region edges
+        const neighborDirs = [
+          [-1, -1],
+          [0, -1],
+          [1, -1],
+          [-1, 0],
+          [1, 0],
+          [-1, 1],
+          [0, 1],
+          [1, 1],
+        ];
+
+        const withinEdgeBand = (xx: number, yy: number) => {
+          const dLeft = xx;
+          const dRight = r.w - 1 - xx;
+          const dTop = yy;
+          const dBottom = r.h - 1 - yy;
+          const d = Math.min(dLeft, dRight, dTop, dBottom);
+          return d >= 0 && d <= radiusLimit; // only perimeter band
+        };
+
+        const hasNeighborReplaced = (xx: number, yy: number) => {
+          for (const [dxN, dyN] of neighborDirs) {
+            const nx = xx + dxN;
+            const ny = yy + dyN;
+            if (nx < 0 || ny < 0 || nx >= r.w || ny >= r.h) continue;
+            if (replaced[ny * r.w + nx]) return true;
+          }
+          return false;
+        };
+
+        const tryReplace = (xx: number, yy: number) => {
+          const cx = r.x + xx;
+          const cy = r.y + yy;
+          const oC = (cy * W + cx) * 4;
+          const a = data[oC + 3];
+          if (a <= alphaThr) return false; // already handled
+          const R = data[oC];
+          const G = data[oC + 1];
+          const B = data[oC + 2];
+          if (!isNarrowGray(R, G, B)) return false; // narrow gray only (180..200)
+          if (colorDist(R, G, B, avgR, avgG, avgB) > 15) return false; // color similarity threshold
+          const oP = (yy * r.w + xx) * 4;
+          data[oC] = photoData[oP];
+          data[oC + 1] = photoData[oP + 1];
+          data[oC + 2] = photoData[oP + 2];
+          data[oC + 3] = photoData[oP + 3];
+          replaced[yy * r.w + xx] = 1;
+          return true;
+        };
+
+        // Two passes max to nibble 1-2px gray borders
+        for (let pass = 0; pass < 2; pass++) {
+          let any = false;
+          for (let yy = 0; yy < r.h; yy++) {
+            for (let xx = 0; xx < r.w; xx++) {
+              if (replaced[yy * r.w + xx]) continue;
+              if (!withinEdgeBand(xx, yy)) continue; // edge-only processing
+              if (!hasNeighborReplaced(xx, yy)) continue; // adjacency constraint
+              if (tryReplace(xx, yy)) {
+                any = true;
+                anyDrew = true;
+              }
+            }
+          }
+          if (!any) break; // stop early if nothing to erode
+        }
       }
+
       ctx.putImageData(imgData, 0, 0);
-      return; // finished pixel-level composite
+
+      // If nothing was drawn, we fall back to geometric cover below
+      if (anyDrew) return; // finished conservative pixel-level composite
     }
     // If we couldn't detect regions, fall back to geometric approach below
   }
