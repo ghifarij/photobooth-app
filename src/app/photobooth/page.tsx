@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { saveSession } from "../../lib/session";
 import { useRouter, useSearchParams } from "next/navigation";
 
-type CaptureState = "idle" | "counting" | "shooting" | "done";
+type CaptureState = "idle" | "counting" | "flashing" | "shooting" | "done";
 
 function uuid() {
   if (
@@ -43,6 +43,7 @@ function PhotoboothInner() {
   const [captureState, setCaptureState] = useState<CaptureState>("idle");
   const [countdown, setCountdown] = useState<number>(timerSeconds);
   const [taken, setTaken] = useState<string[]>([]);
+  const [flashOn, setFlashOn] = useState(false);
 
   const remaining = useMemo(
     () => desiredPhotos - taken.length,
@@ -87,12 +88,24 @@ function PhotoboothInner() {
   useEffect(() => {
     if (captureState !== "counting") return;
     if (countdown <= 0) {
-      setCaptureState("shooting");
+      // Trigger a 1s flash effect before capturing
+      setFlashOn(true);
+      setCaptureState("flashing");
       return;
     }
     const id = setTimeout(() => setCountdown((c) => c - 1), 1000);
     return () => clearTimeout(id);
   }, [captureState, countdown]);
+
+  // Flash phase lasts ~1s then proceeds to shooting (capture)
+  useEffect(() => {
+    if (captureState !== "flashing") return;
+    const t = setTimeout(() => {
+      setFlashOn(false);
+      setCaptureState("shooting");
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [captureState]);
 
   // When in shooting phase, capture frame then continue or finish
   useEffect(() => {
@@ -172,19 +185,24 @@ function PhotoboothInner() {
           <div className="text-red-600 text-sm">{streamError}</div>
         )}
 
-        <div className="relative w-full aspect-video card media">
+        <div className="relative w-full aspect-video card media overflow-hidden">
           <video
             ref={videoRef}
             className="w-full h-full object-cover -scale-x-100"
             playsInline
             muted
           />
+          {/* Countdown bubble */}
           {captureState === "counting" && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-24 h-24 rounded-full bg-black/60 text-white flex items-center justify-center text-4xl font-bold">
                 {countdown}
               </div>
             </div>
+          )}
+          {/* Flash overlay (UI only) */}
+          {(flashOn || captureState === "flashing") && (
+            <div className="absolute inset-0 pointer-events-none flash-overlay" />
           )}
         </div>
 
