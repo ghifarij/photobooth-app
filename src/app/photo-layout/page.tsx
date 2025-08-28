@@ -3,7 +3,7 @@
 import { JSX, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadSession, updateSession } from "../../lib/session";
-import { composeStrip } from "../../lib/compose";
+import { composeStrip, type LayoutId } from "../../lib/compose";
 
 type TemplateOption = {
   id: string;
@@ -22,47 +22,92 @@ const PreviewShell = ({
       : variant === "phone-pastel"
       ? "linear-gradient(180deg,#fff1f2,#e0f2fe)"
       : "linear-gradient(180deg,#111827,#0b1220)";
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const textRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const sync = () => {
+      const t = textRef.current;
+      const i = imgRef.current;
+      if (!t || !i) return;
+      const h = t.getBoundingClientRect().height;
+      i.style.height = `${Math.max(10, Math.round(h))}px`;
+      i.style.width = "auto";
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
 
   return (
     <div
-      className="w-full aspect-[3/4] rounded-lg overflow-hidden border-2 flex flex-col items-stretch justify-between"
+      className="w-full aspect-[9/16] rounded-lg overflow-hidden flex flex-col items-stretch justify-center"
       style={{ background: bg }}
     >
-      <div className="p-3 space-y-3 flex-1 flex flex-col">
+      <div className="p-3 flex flex-col gap-3 w-full h-full">
+        {/* Three photo placeholders (top 3) */}
         <div
           className={
             variant === "phone-dark"
-              ? "bg-white/80 rounded-md h-[30%]"
-              : "bg-black/80 rounded-md h-[30%]"
+              ? "bg-white/70 flex-1"
+              : "bg-black/70 flex-1"
           }
         />
         <div
           className={
             variant === "phone-dark"
-              ? "bg-white/80 rounded-md h-[30%]"
-              : "bg-black/80 rounded-md h-[30%]"
+              ? "bg-white/70 flex-1"
+              : "bg-black/70 flex-1"
           }
         />
         <div
           className={
             variant === "phone-dark"
-              ? "bg-white/80 rounded-md h-[30%]"
-              : "bg-black/80 rounded-md h-[30%]"
+              ? "bg-white/70 flex-1"
+              : "bg-black/70 flex-1"
           }
         />
-      </div>
-      <div
-        className={
-          variant === "phone-dark"
-            ? "text-sm text-center py-2 font-medium text-white/90"
-            : "text-sm text-center py-2 font-medium text-black/80"
-        }
-      >
-        {variant === "phone"
-          ? "Phone Print"
-          : variant === "phone-pastel"
-          ? "Pastel Print"
-          : "Darkroom Print"}
+        {/* Logo + texts card (bottom) */}
+        <div className="flex-1 relative flex items-center justify-center">
+          <div className="h-[86%] flex items-center gap-3 w-auto">
+            {/* Left: Logo */}
+            <div className="flex items-center justify-center shrink-0 h-full">
+              <img
+                src={
+                  variant === "phone-dark"
+                    ? "/AssessioDarkMode.png"
+                    : "/AssessioLightMode.png"
+                }
+                alt="Assessio"
+                ref={imgRef}
+                className="object-contain"
+                style={{ maxWidth: "140px" }}
+              />
+            </div>
+            {/* Right: Two-line text */}
+            <div ref={textRef} className="flex flex-col justify-center">
+              <div
+                className="font-extrabold leading-none tracking-tight truncate"
+                style={{
+                  color: variant === "phone-dark" ? "#D1D9F2" : "#0D2260",
+                  fontSize: "clamp(18px, 4.8vh, 34px)",
+                }}
+                title="EXHIBITION DAY"
+              >
+                EXHIBITION DAY
+              </div>
+              <div
+                className="font-semibold leading-tight opacity-80 truncate"
+                style={{
+                  color: variant === "phone-dark" ? "#D1D9F2" : "#0D2260",
+                  fontSize: "clamp(17px, 4.4vh, 31px)",
+                }}
+                title="Assessio @ 2025"
+              >
+                Assessio @ 2025
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -73,11 +118,12 @@ function PreviewStrip({
   layout,
   photoSrcs,
 }: {
-  layout: string;
+  layout: LayoutId;
   photoSrcs: string[] | null;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const [imgs, setImgs] = useState<HTMLImageElement[] | null>(null);
+  const [logo, setLogo] = useState<HTMLImageElement | null>(null);
 
   // Load images once when sources change
   useEffect(() => {
@@ -98,25 +144,34 @@ function PreviewStrip({
     ).then((arr) => {
       if (!cancelled) setImgs(arr);
     });
+    // Load logo once based on layout (dark vs light)
+    const li = new Image();
+    li.onload = () => {
+      if (!cancelled) setLogo(li);
+    };
+    li.src =
+      layout === "template-phone-dark"
+        ? "/AssessioDarkMode.png"
+        : "/AssessioLightMode.png";
     return () => {
       cancelled = true;
     };
-  }, [photoSrcs]);
+  }, [photoSrcs, layout]);
 
   // Draw preview
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
-    const isPhone =
-      layout === "template-phone" ||
-      layout === "template-phone-pastel" ||
-      layout === "template-phone-dark";
     // Increase preview base size on very large screens
     const vw = typeof window !== "undefined" ? window.innerWidth : 0;
     const w = vw >= 1536 ? 600 : 400;
-    const h = isPhone ? Math.round((4 / 3) * w) : vw >= 1536 ? 1200 : 800;
-    composeStrip(c, layout, imgs, { width: w, height: h });
-  }, [layout, imgs]);
+    const h = Math.round((16 / 9) * w);
+    composeStrip(c, layout, imgs, {
+      width: w,
+      height: h,
+      logo,
+    });
+  }, [layout, imgs, logo]);
 
   // Show shell while loading
   if (!photoSrcs || !imgs) {
@@ -130,7 +185,7 @@ function PreviewStrip({
   }
 
   return (
-    <div className="w-full aspect-[3/4] rounded-lg overflow-hidden border-2 flex items-center justify-center bg-gray-50">
+    <div className="w-full aspect-[9/16] rounded-lg overflow-hidden flex items-center justify-center">
       <canvas ref={ref} className="w-full h-full object-contain" />
     </div>
   );
@@ -139,17 +194,17 @@ function PreviewStrip({
 const options: TemplateOption[] = [
   {
     id: "template-phone",
-    label: "Phone Print (4:3)",
+    label: "Phone Print (9:16)",
     preview: <PreviewShell variant="phone" />,
   },
   {
     id: "template-phone-pastel",
-    label: "Pastel Print (4:3)",
+    label: "Pastel Print (9:16)",
     preview: <PreviewShell variant="phone-pastel" />,
   },
   {
     id: "template-phone-dark",
-    label: "Darkroom Print (4:3)",
+    label: "Darkroom Print (9:16)",
     preview: <PreviewShell variant="phone-dark" />,
   },
 ];
@@ -205,7 +260,7 @@ function PhotoLayoutInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-6xl 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
+      <div className="w-full max-w-4xl 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
         <h1 className="heading-2 text-center">Choose your template</h1>
 
         {!id && (
@@ -245,7 +300,7 @@ function PhotoLayoutInner() {
           <button
             onClick={go}
             disabled={!canContinue}
-            className="btn btn-primary px-6 py-3 2xl:px-8 2xl:py-4"
+            className="btn btn-primary w-80 px-6 py-3 2xl:px-8 2xl:py-4"
           >
             Continue
           </button>

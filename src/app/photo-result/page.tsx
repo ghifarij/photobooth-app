@@ -34,6 +34,7 @@ function PhotoResultInner() {
   const [finalUrl, setFinalUrl] = useState<string | null>(presetUrl || null);
   const [cloudUrl, setCloudUrl] = useState<string | null>(presetUrl || null);
   const [uploading, setUploading] = useState(false);
+  const [logo, setLogo] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
     if (presetUrl) return; // If URL provided, skip local session
@@ -49,6 +50,13 @@ function PhotoResultInner() {
       setSession(s);
     })();
   }, [id, presetUrl]);
+
+  // Preload logo once (pick dark/light)
+  useEffect(() => {
+    const li = new Image();
+    li.onload = () => setLogo(li);
+    li.src = session?.layout === "template-phone-dark" ? "/AssessioDarkMode.png" : "/AssessioLightMode.png";
+  }, [session?.layout]);
 
   // Load images and compose
   useEffect(() => {
@@ -66,18 +74,15 @@ function PhotoResultInner() {
         )
       );
       const canvas = canvasRef.current!;
-      const isPhone =
-        session.layout === "template-phone" ||
-        session.layout === "template-phone-pastel" ||
-        session.layout === "template-phone-dark";
       composeStrip(canvas, session.layout, images, {
-        width: isPhone ? 1800 : 800,
-        height: isPhone ? 2400 : 2400,
+        width: 1080,
+        height: 1920,
+        logo,
       });
       const url = canvas.toDataURL("image/png");
       setFinalUrl(url);
     })();
-  }, [session, presetUrl]);
+  }, [session, presetUrl, logo]);
 
   // Upload composed image to Cloudinary once available
   useEffect(() => {
@@ -174,8 +179,8 @@ function PhotoResultInner() {
                   <NextImage
                     src={presetUrl}
                     alt="Result"
-                    width={1200}
-                    height={1800}
+                    width={1080}
+                    height={1920}
                     className="h-[75dvh] 2xl:h-[82dvh] w-auto max-w-full media"
                   />
                 ) : (

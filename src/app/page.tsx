@@ -13,7 +13,7 @@ export default function Home() {
         </p>
         <Link
           href="/photobooth"
-          className="btn btn-primary text-base px-6 py-3"
+          className="btn btn-primary w-80 text-base px-6 py-3"
         >
           Start Photobooth
         </Link>
