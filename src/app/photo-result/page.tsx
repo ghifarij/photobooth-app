@@ -51,18 +51,24 @@ function PhotoResultInner() {
     })();
   }, [id, presetUrl]);
 
-  // Preload logo once (pick dark/light)
+  // Preload logo once we know the session/layout
   useEffect(() => {
+    if (!session) return; // wait for session so we pick the right asset
     const li = new Image();
     li.onload = () => setLogo(li);
-    li.src = session?.layout === "template-phone-dark" ? "/AssessioDarkMode.png" : "/AssessioLightMode.png";
-  }, [session?.layout]);
+    li.src =
+      session.layout === "template-phone-dark"
+        ? "/AssessioDarkMode.png"
+        : "/AssessioLightMode.png";
+  }, [session]);
 
   // Load images and compose
   useEffect(() => {
     (async () => {
       if (presetUrl) return; // pre-set URL, nothing to compose
       if (!session) return;
+      // Ensure brand logo is loaded to avoid composing with a wrong default
+      if (!logo) return;
       const images: HTMLImageElement[] = await Promise.all(
         session.photos.map(
           (src) =>
@@ -148,14 +154,13 @@ function PhotoResultInner() {
 
   const [qrSrc, setQrSrc] = useState<string | null>(null);
 
-  // Compute QR only on client to prevent SSR/client hydration mismatch
+  // Compute QR only after a cloud URL exists to avoid a transient QR
   useEffect(() => {
     if (typeof window === "undefined") return;
     const base = window.location.origin;
+    // Only show QR once the Cloudinary URL (or presetUrl) is available.
     const link = cloudUrl
       ? `${base}/photo-result?url=${encodeURIComponent(cloudUrl)}`
-      : id
-      ? `${base}/photo-result?id=${encodeURIComponent(id)}`
       : null;
     if (!link) {
       setQrSrc(null);
@@ -165,7 +170,7 @@ function PhotoResultInner() {
       link
     )}`;
     setQrSrc(api);
-  }, [id, cloudUrl]);
+  }, [cloudUrl]);
 
   return (
     <main className="flex flex-col items-center">
