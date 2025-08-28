@@ -14,9 +14,7 @@ export default function PhotoResultPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex items-center justify-center">
-          Loading…
-        </main>
+        <main className="flex items-center justify-center">Loading…</main>
       }
     >
       <PhotoResultInner />
@@ -165,7 +163,6 @@ function PhotoResultInner() {
   return (
     <main className="flex flex-col items-center">
       <div className="w-full max-w-5xl space-y-5">
-        <h1 className="heading-2">Your Result</h1>
         {error && <div className="text-red-600 text-sm">{error}</div>}
         {!error && (
           <div className="card overflow-hidden p-4 md:p-6">
@@ -177,12 +174,12 @@ function PhotoResultInner() {
                     alt="Result"
                     width={1200}
                     height={1800}
-                    className="h-[70dvh] w-auto max-w-full media"
+                    className="h-[75dvh] w-auto max-w-full media"
                   />
                 ) : (
                   <canvas
                     ref={canvasRef}
-                    className="h-[70dvh] w-auto max-w-full media"
+                    className="h-[75dvh] w-auto max-w-full media"
                   />
                 )}
               </div>
@@ -192,7 +189,7 @@ function PhotoResultInner() {
                   <button
                     onClick={download}
                     disabled={!finalUrl}
-                    className="btn btn-ghost px-4 py-3 hover:-translate-y-px"
+                    className="btn btn-primary px-4 py-3 hover:-translate-y-px"
                   >
                     Download
                   </button>
@@ -203,15 +200,6 @@ function PhotoResultInner() {
                   >
                     Share
                   </button>
-                  <a
-                    href={cloudUrl || undefined}
-                    target="_blank"
-                    rel="noreferrer"
-                    className={`btn btn-primary ${!cloudUrl ? "pointer-events-none opacity-60" : ""}`}
-                    aria-disabled={!cloudUrl}
-                  >
-                    {uploading ? "Uploading to cloud…" : cloudUrl ? "Open Cloud Link" : "Cloud link not ready"}
-                  </a>
                 </div>
 
                 <div className="mt-2 space-y-2">
