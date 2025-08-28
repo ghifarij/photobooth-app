@@ -149,7 +149,7 @@ function PhotoboothInner() {
       const payload = {
         id,
         // Temporary template; user will choose in the next step
-        layout: "template-phone",
+        layout: "PHOTOSTRIP_A",
         photos: taken,
         timer: timerSeconds,
         createdAt: Date.now(),

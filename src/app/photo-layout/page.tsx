@@ -10,108 +10,7 @@ type TemplateOption = {
   label: string;
   preview: JSX.Element;
 };
-
-const PreviewShell = ({
-  variant,
-}: {
-  variant: "phone" | "phone-pastel" | "phone-dark";
-}) => {
-  const bg =
-    variant === "phone"
-      ? "linear-gradient(180deg,#fafaf9,#f5f5f4)"
-      : variant === "phone-pastel"
-      ? "linear-gradient(180deg,#fff1f2,#e0f2fe)"
-      : "linear-gradient(180deg,#111827,#0b1220)";
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const textRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const sync = () => {
-      const t = textRef.current;
-      const i = imgRef.current;
-      if (!t || !i) return;
-      const h = t.getBoundingClientRect().height;
-      i.style.height = `${Math.max(10, Math.round(h))}px`;
-      i.style.width = "auto";
-    };
-    sync();
-    window.addEventListener("resize", sync);
-    return () => window.removeEventListener("resize", sync);
-  }, []);
-
-  return (
-    <div
-      className="w-full aspect-[9/16] rounded-lg overflow-hidden flex flex-col items-stretch justify-center"
-      style={{ background: bg }}
-    >
-      <div className="p-3 flex flex-col gap-3 w-full h-full">
-        {/* Three photo placeholders (top 3) */}
-        <div
-          className={
-            variant === "phone-dark"
-              ? "bg-white/70 flex-1"
-              : "bg-black/70 flex-1"
-          }
-        />
-        <div
-          className={
-            variant === "phone-dark"
-              ? "bg-white/70 flex-1"
-              : "bg-black/70 flex-1"
-          }
-        />
-        <div
-          className={
-            variant === "phone-dark"
-              ? "bg-white/70 flex-1"
-              : "bg-black/70 flex-1"
-          }
-        />
-        {/* Logo + texts card (bottom) */}
-        <div className="flex-1 relative flex items-center justify-center">
-          <div className="h-[86%] flex items-center gap-3 w-auto">
-            {/* Left: Logo */}
-            <div className="flex items-center justify-center shrink-0 h-full">
-              <img
-                src={
-                  variant === "phone-dark"
-                    ? "/AssessioDarkMode.png"
-                    : "/AssessioLightMode.png"
-                }
-                alt="Assessio"
-                ref={imgRef}
-                className="object-contain"
-                style={{ maxWidth: "140px" }}
-              />
-            </div>
-            {/* Right: Two-line text */}
-            <div ref={textRef} className="flex flex-col justify-center">
-              <div
-                className="font-extrabold leading-none tracking-tight truncate"
-                style={{
-                  color: variant === "phone-dark" ? "#D1D9F2" : "#0D2260",
-                  fontSize: "clamp(18px, 4.8vh, 34px)",
-                }}
-                title="EXHIBITION DAY"
-              >
-                EXHIBITION DAY
-              </div>
-              <div
-                className="font-semibold leading-tight opacity-80 truncate"
-                style={{
-                  color: variant === "phone-dark" ? "#D1D9F2" : "#0D2260",
-                  fontSize: "clamp(17px, 4.4vh, 31px)",
-                }}
-                title="Assessio @ 2025"
-              >
-                Assessio @ 2025
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Phone templates removed; only photostrip previews are supported.
 
 // Preview now uses the shared composer for parity with the result page
 function PreviewStrip({
@@ -123,7 +22,7 @@ function PreviewStrip({
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const [imgs, setImgs] = useState<HTMLImageElement[] | null>(null);
-  const [logo, setLogo] = useState<HTMLImageElement | null>(null);
+  const [bg, setBg] = useState<HTMLImageElement | null>(null);
 
   // Load images once when sources change
   useEffect(() => {
@@ -144,15 +43,16 @@ function PreviewStrip({
     ).then((arr) => {
       if (!cancelled) setImgs(arr);
     });
-    // Load logo once based on layout (dark vs light)
-    const li = new Image();
-    li.onload = () => {
-      if (!cancelled) setLogo(li);
-    };
-    li.src =
-      layout === "template-phone-dark"
-        ? "/AssessioDarkMode.png"
-        : "/AssessioLightMode.png";
+    // Load photostrip background
+    if (typeof layout === "string") {
+      const bi = new Image();
+      bi.onload = () => {
+        if (!cancelled) setBg(bi);
+      };
+      bi.src = `/${layout}.png`;
+    } else {
+      setBg(null);
+    }
     return () => {
       cancelled = true;
     };
@@ -162,30 +62,33 @@ function PreviewStrip({
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
-    // Increase preview base size on very large screens
+    // Photostrip preview sizing
     const vw = typeof window !== "undefined" ? window.innerWidth : 0;
-    const w = vw >= 1536 ? 600 : 400;
-    const h = Math.round((16 / 9) * w);
+    const w = vw >= 1536 ? 360 : 280;
+    const h = Math.round(w * (4725 / 1575));
     composeStrip(c, layout, imgs, {
       width: w,
       height: h,
-      logo,
+      background: bg,
     });
-  }, [layout, imgs, logo]);
+  }, [layout, imgs, bg]);
 
   // Show shell while loading
   if (!photoSrcs || !imgs) {
-    const variant =
-      layout === "template-phone"
-        ? "phone"
-        : layout === "template-phone-pastel"
-        ? "phone-pastel"
-        : "phone-dark";
-    return <PreviewShell variant={variant} />;
+    // Photostrip static background shell
+    return (
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
+        <img
+          src={`/${layout}.png`}
+          alt={layout}
+          className="w-full h-full object-contain"
+        />
+      </div>
+    );
   }
 
   return (
-    <div className="w-full aspect-[9/16] rounded-lg overflow-hidden flex items-center justify-center">
+    <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center">
       <canvas ref={ref} className="w-full h-full object-contain" />
     </div>
   );
@@ -193,19 +96,43 @@ function PreviewStrip({
 
 const options: TemplateOption[] = [
   {
-    id: "template-phone",
-    label: "Phone Print (9:16)",
-    preview: <PreviewShell variant="phone" />,
+    id: "PHOTOSTRIP_A",
+    label: "Photostrip A",
+    preview: (
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
+        <img
+          src="/PHOTOSTRIP_A.png"
+          alt="Photostrip A"
+          className="w-full h-full object-contain"
+        />
+      </div>
+    ),
   },
   {
-    id: "template-phone-pastel",
-    label: "Pastel Print (9:16)",
-    preview: <PreviewShell variant="phone-pastel" />,
+    id: "PHOTOSTRIP_B",
+    label: "Photostrip B",
+    preview: (
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
+        <img
+          src="/PHOTOSTRIP_B.png"
+          alt="Photostrip B"
+          className="w-full h-full object-contain"
+        />
+      </div>
+    ),
   },
   {
-    id: "template-phone-dark",
-    label: "Darkroom Print (9:16)",
-    preview: <PreviewShell variant="phone-dark" />,
+    id: "PHOTOSTRIP_C",
+    label: "Photostrip C",
+    preview: (
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
+        <img
+          src="/PHOTOSTRIP_C.png"
+          alt="Photostrip C"
+          className="w-full h-full object-contain"
+        />
+      </div>
+    ),
   },
 ];
 
@@ -260,7 +187,7 @@ function PhotoLayoutInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-4xl 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
+      <div className="w-full max-w-[640px] 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
         <h1 className="heading-2 text-center">Choose your template</h1>
 
         {!id && (
