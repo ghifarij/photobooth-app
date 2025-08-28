@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import NextImage from "next/image";
 import { loadSession, type SessionPayload } from "../../lib/session";
 import { composeStrip } from "../../lib/compose";
+import Link from "next/link";
+import { FaCamera } from "react-icons/fa";
 
 // Session type and async loader moved to shared helper
 
@@ -202,22 +204,41 @@ function PhotoResultInner() {
                   </button>
                 </div>
 
-                <div className="mt-2 space-y-2">
-                  <div className="text-sm muted">Scan to open this result</div>
-                  <div className="w-40 h-40 bg-white border border-[var(--border)] rounded flex items-center justify-center overflow-hidden">
-                    {!uploading && qrSrc ? (
-                      <NextImage
-                        src={qrSrc}
-                        alt="QR code"
-                        width={200}
-                        height={200}
-                        className="w-full h-full object-contain"
-                      />
-                    ) : null}
+                {/* QR card: centered content, consistent styling */}
+                <div className="card w-full p-4 md:p-5 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out">
+                  <div className="flex flex-col items-center text-center gap-3">
+                    <div className="text-sm muted">Scan to open this result</div>
+                    <div className="w-40 h-40 bg-white border border-[var(--border)] rounded flex items-center justify-center overflow-hidden">
+                      {!uploading && qrSrc ? (
+                        <NextImage
+                          src={qrSrc}
+                          alt="QR code"
+                          width={200}
+                          height={200}
+                          className="w-full h-full object-contain"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="text-xs muted">
+                      QR opens a cross‑device link. It appears once ready.
+                    </div>
                   </div>
-                  <div className="text-xs muted">
-                    QR opens a cross‑device link. It appears once ready.
-                  </div>
+                </div>
+
+                {/* Desktop-only: Take another photo card centered in remaining space */}
+                <div className="hidden md:flex flex-1 items-center">
+                  <Link
+                    href="/photobooth"
+                    className="group card w-full p-4 md:p-5 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out"
+                  >
+                    <div className="flex flex-col items-center text-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center shadow-sm transition-colors">
+                        <FaCamera className="text-[var(--foreground)] opacity-80" size={22} />
+                      </div>
+                      <div className="font-semibold">Take another photo</div>
+                      <div className="text-xs muted">Open the photobooth on this device</div>
+                    </div>
+                  </Link>
                 </div>
               </div>
             </div>
