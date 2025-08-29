@@ -98,14 +98,46 @@ function PhotoResultInner() {
       if (!finalUrl || cloudUrl || uploading) return;
       try {
         setUploading(true);
+        // First try server-side signed upload (preferred in prod)
         const res = await fetch("/api/upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ image: finalUrl, folder: "photobooth" }),
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Upload failed");
-        setCloudUrl(data.secure_url as string);
+        const ok = res.ok;
+        let data: { error?: string; secure_url?: string } | null = null;
+        try {
+          data = await res.json();
+        } catch {}
+        if (!ok) {
+          // Fallback to client-side unsigned upload when server env isn't configured in prod.
+          const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+          const unsignedPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+          if (!cloudName || !unsignedPreset) {
+            const msg = data?.error ||
+              "Upload failed and unsigned preset is not configured";
+            throw new Error(msg);
+          }
+          const form = new FormData();
+          form.append("file", finalUrl);
+          form.append("upload_preset", unsignedPreset as string);
+          // Optional: keep same folder name if your preset allows it
+          form.append("folder", "photobooth");
+          const direct = await fetch(
+            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+            { method: "POST", body: form }
+          );
+          const djson = await direct.json();
+          if (!direct.ok) {
+            throw new Error(djson?.error?.message || "Unsigned upload failed");
+          }
+          setCloudUrl(djson.secure_url as string);
+        } else {
+          if (!data || !data.secure_url) {
+            throw new Error("Invalid upload response");
+          }
+          setCloudUrl(data.secure_url);
+        }
       } catch (e: unknown) {
         // If upload fails, keep local-only option
         const message = e instanceof Error ? e.message : String(e);

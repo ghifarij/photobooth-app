@@ -187,7 +187,7 @@ function PhotoLayoutInner() {
 
   return (
     <main className="flex flex-col items-center">
-      <div className="w-full max-w-[640px] 2xl:max-w-[1600px] space-y-8 2xl:space-y-10">
+      <div className="w-full max-w-[640px] 2xl:max-w-[1100px] space-y-8 2xl:space-y-10">
         <h1 className="heading-2 text-center">Choose your template</h1>
 
         {!id && (
