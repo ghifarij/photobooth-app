@@ -86,8 +86,71 @@ function PhotoResultInner() {
         height: 4725,
         background: bg,
       });
-      const url = canvas.toDataURL("image/png");
-      setFinalUrl(url);
+      // Compress to JPEG <= 2MB to satisfy Vercel upload limits
+      const MAX_BYTES = 2 * 1024 * 1024; // 2MB
+      const toBlob = (c: HTMLCanvasElement, quality: number) =>
+        new Promise<Blob | null>((resolve) =>
+          c.toBlob((b) => resolve(b), "image/jpeg", quality)
+        );
+      const blobToDataURL = (b: Blob) =>
+        new Promise<string>((resolve) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.readAsDataURL(b);
+        });
+
+      // Use offscreen canvas for optional downscaling to avoid changing the UI canvas
+      const work = document.createElement("canvas");
+      work.width = canvas.width;
+      work.height = canvas.height;
+      const wctx = work.getContext("2d");
+      if (!wctx) return;
+      wctx.drawImage(canvas, 0, 0);
+
+      let scale = 1.0;
+      let bestDataUrl: string | null = null;
+      let attempts = 0;
+      while (attempts < 6) {
+        attempts++;
+        // Binary search quality between 0.5..0.95 for current scale
+        let lo = 0.5;
+        let hi = 0.95;
+        let chosen: { url: string; size: number } | null = null;
+        for (let i = 0; i < 6; i++) {
+          const q = (lo + hi) / 2;
+          const b = await toBlob(work, q);
+          if (!b) break;
+          const size = b.size;
+          const url = await blobToDataURL(b);
+          if (size <= MAX_BYTES) {
+            chosen = { url, size };
+            lo = q; // try higher quality within limit
+          } else {
+            hi = q; // decrease quality
+          }
+        }
+        if (chosen) {
+          bestDataUrl = chosen.url;
+          break;
+        }
+        // If no quality fits, downscale by 10% and retry
+        scale *= 0.9;
+        const nw = Math.max(200, Math.round(canvas.width * scale));
+        const nh = Math.max(200, Math.round(canvas.height * scale));
+        work.width = nw;
+        work.height = nh;
+        const ctx2 = work.getContext("2d");
+        if (!ctx2) break;
+        ctx2.drawImage(canvas, 0, 0, nw, nh);
+      }
+
+      // Fallback if all else fails
+      if (!bestDataUrl) {
+        const b = await toBlob(work, 0.5);
+        if (b) bestDataUrl = await blobToDataURL(b);
+      }
+
+      if (bestDataUrl) setFinalUrl(bestDataUrl);
     })();
   }, [session, presetUrl, bg]);
 
@@ -152,7 +215,7 @@ function PhotoResultInner() {
     if (!finalUrl) return;
     const a = document.createElement("a");
     a.href = finalUrl;
-    a.download = `photobooth-${id}.png`;
+    a.download = `photobooth-${id}.jpg`;
     a.click();
   };
 
@@ -166,8 +229,8 @@ function PhotoResultInner() {
       }
       const res = await fetch(finalUrl);
       const blob = await res.blob();
-      const file = new File([blob], `photobooth-${id}.png`, {
-        type: blob.type,
+      const file = new File([blob], `photobooth-${id}.jpg`, {
+        type: "image/jpeg",
       });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Photobooth" });
