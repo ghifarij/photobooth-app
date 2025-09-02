@@ -102,7 +102,9 @@ function PhotoResultInner() {
     try {
       const res = await fetch(finalUrl);
       const blob = await res.blob();
-      const file = new File([blob], `photobooth-${id}.png`, { type: "image/png" });
+      const file = new File([blob], `photobooth-${id}.png`, {
+        type: "image/png",
+      });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Photobooth" });
       }
@@ -138,7 +140,7 @@ function PhotoResultInner() {
               </div>
 
               <div className="w-full md:w-80 2xl:w-96 shrink-0 flex flex-col gap-3">
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-4">
                   <button
                     onClick={download}
                     disabled={!finalUrl}
@@ -158,17 +160,22 @@ function PhotoResultInner() {
                 {null}
 
                 {/* Desktop-only: Take another photo card centered in remaining space */}
-                <div className="hidden md:flex flex-1 items-center">
+                <div className="hidden md:flex flex-1 items-center pt-2">
                   <Link
                     href="/photobooth"
                     className="group card w-full p-4 md:p-5 2xl:p-6 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out"
                   >
                     <div className="flex flex-col items-center text-center gap-3">
                       <div className="w-12 h-12 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] flex items-center justify-center shadow-sm transition-colors">
-                        <FaCamera className="text-[var(--foreground)] opacity-80" size={22} />
+                        <FaCamera
+                          className="text-[var(--foreground)] opacity-80"
+                          size={22}
+                        />
                       </div>
                       <div className="font-semibold">Take another photo</div>
-                      <div className="text-xs muted">Open the photobooth on this device</div>
+                      <div className="text-xs muted">
+                        Open the photobooth on this device
+                      </div>
                     </div>
                   </Link>
                 </div>
