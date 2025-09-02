@@ -28,7 +28,7 @@ export function composeStrip(
   if (!ctx) return;
   // Prefer high quality resampling for all drawImage calls
   ctx.imageSmoothingEnabled = true;
-	ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingQuality = "high";
 
   // Draw provided background if any; otherwise fill neutral
   if (opts.background) {
@@ -40,8 +40,6 @@ export function composeStrip(
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
   }
-
-	
 
   const drawImageCover = (
     img: HTMLImageElement,
@@ -66,7 +64,9 @@ export function composeStrip(
   // Try to detect dark/gray/transparent rectangular "slots" on the background
   // so photos fill them. First approach: pixel-level mask from the drawn template.
   // If unavailable, fallback to a coarse downscaled luminance approach.
-  const detectSlots = (bg: HTMLImageElement): { x: number; y: number; w: number; h: number }[] => {
+  const detectSlots = (
+    bg: HTMLImageElement
+  ): { x: number; y: number; w: number; h: number }[] => {
     // Use an offscreen canvas with small resolution to speed up scanning
     const targetW = 220; // small but enough to locate edges
     const targetH = Math.max(220, Math.round((targetW * H) / W));
@@ -290,7 +290,12 @@ export function composeStrip(
     }
 
     // Detect up to 3 vertical slot rectangles from the mask
-    const detectRectsFromMask = (): { x: number; y: number; w: number; h: number }[] => {
+    const detectRectsFromMask = (): {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }[] => {
       const leftMargin = Math.floor(W * 0.08);
       const rightMargin = Math.ceil(W * 0.92);
       const isBand: boolean[] = new Array(H).fill(false);
@@ -367,13 +372,22 @@ export function composeStrip(
         const minCh = Math.min(r, g, b);
         return (
           maxCh - minCh <= 12 && // low chroma
-          r >= 180 && r <= 200 &&
-          g >= 180 && g <= 200 &&
-          b >= 180 && b <= 200
+          r >= 180 &&
+          r <= 200 &&
+          g >= 180 &&
+          g <= 200 &&
+          b >= 180 &&
+          b <= 200
         );
       };
-      const colorDist = (r1: number, g1: number, b1: number, r2: number, g2: number, b2: number) =>
-        Math.max(Math.abs(r1 - r2), Math.abs(g1 - g2), Math.abs(b1 - b2));
+      const colorDist = (
+        r1: number,
+        g1: number,
+        b1: number,
+        r2: number,
+        g2: number,
+        b2: number
+      ) => Math.max(Math.abs(r1 - r2), Math.abs(g1 - g2), Math.abs(b1 - b2));
 
       let anyDrew = false;
       for (let i = 0; i < regions.length; i++) {
@@ -438,7 +452,15 @@ export function composeStrip(
           const G = data[o + 1];
           const B = data[o + 2];
           // consider only plausible gray tones to avoid colored decor
-          if (Math.max(R, G, B) - Math.min(R, G, B) <= 16 && R >= 170 && R <= 210 && G >= 170 && G <= 210 && B >= 170 && B <= 210) {
+          if (
+            Math.max(R, G, B) - Math.min(R, G, B) <= 16 &&
+            R >= 170 &&
+            R <= 210 &&
+            G >= 170 &&
+            G <= 210 &&
+            B >= 170 &&
+            B <= 210
+          ) {
             sumR += R;
             sumG += G;
             sumB += B;
