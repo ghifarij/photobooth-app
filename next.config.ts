@@ -2,14 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Disable Next.js image optimization to avoid proxying
-    // large remote images through Vercel (which counts toward
-    // Vercel data transfer). Let Cloudinary/CDN serve directly.
+    // Disable Next.js image optimization; all images are local/static.
     unoptimized: true,
-    remotePatterns: [
-      { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "api.qrserver.com" },
-    ],
   },
 };
 

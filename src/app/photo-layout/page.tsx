@@ -1,6 +1,7 @@
 "use client";
 
 import { JSX, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import NextImage from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { loadSession, updateSession } from "../../lib/session";
 import { composeStrip, type LayoutId } from "../../lib/compose";
@@ -77,11 +78,14 @@ function PreviewStrip({
   if (!photoSrcs || !imgs) {
     // Photostrip static background shell
     return (
-      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
-        <img
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)] relative">
+        <NextImage
           src={`/${layout}.png`}
           alt={layout}
-          className="w-full h-full object-contain"
+          fill
+          sizes="(min-width: 768px) 33vw, 100vw"
+          className="object-contain"
+          priority={false}
         />
       </div>
     );
@@ -99,11 +103,14 @@ const options: TemplateOption[] = [
     id: "PHOTOSTRIP_A",
     label: "Photostrip A",
     preview: (
-      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
-        <img
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)] relative">
+        <NextImage
           src="/PHOTOSTRIP_A.png"
           alt="Photostrip A"
-          className="w-full h-full object-contain"
+          fill
+          sizes="(min-width: 768px) 33vw, 100vw"
+          className="object-contain"
+          priority={false}
         />
       </div>
     ),
@@ -112,11 +119,14 @@ const options: TemplateOption[] = [
     id: "PHOTOSTRIP_B",
     label: "Photostrip B",
     preview: (
-      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
-        <img
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)] relative">
+        <NextImage
           src="/PHOTOSTRIP_B.png"
           alt="Photostrip B"
-          className="w-full h-full object-contain"
+          fill
+          sizes="(min-width: 768px) 33vw, 100vw"
+          className="object-contain"
+          priority={false}
         />
       </div>
     ),
@@ -125,11 +135,14 @@ const options: TemplateOption[] = [
     id: "PHOTOSTRIP_C",
     label: "Photostrip C",
     preview: (
-      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)]">
-        <img
+      <div className="w-full aspect-[1/3] rounded-lg overflow-hidden flex items-center justify-center bg-[var(--surface-1)] relative">
+        <NextImage
           src="/PHOTOSTRIP_C.png"
           alt="Photostrip C"
-          className="w-full h-full object-contain"
+          fill
+          sizes="(min-width: 768px) 33vw, 100vw"
+          className="object-contain"
+          priority={false}
         />
       </div>
     ),
