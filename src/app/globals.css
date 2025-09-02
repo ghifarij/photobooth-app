@@ -11,6 +11,9 @@
   --accent: #4062cb; /* brand accent */
   --accent-foreground: #ffffff;
   --radius: 14px;
+  /* Provide default font variables to avoid network fetch of Google Fonts */
+  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 @theme inline {
