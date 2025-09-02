@@ -28,8 +28,7 @@ export function composeStrip(
   if (!ctx) return;
   // Prefer high quality resampling for all drawImage calls
   ctx.imageSmoothingEnabled = true;
-  // @ts-expect-error - not always typed in DOM lib
-  ctx.imageSmoothingQuality = "high";
+	ctx.imageSmoothingQuality = "high";
 
   // Draw provided background if any; otherwise fill neutral
   if (opts.background) {
@@ -42,28 +41,7 @@ export function composeStrip(
     ctx.fillRect(0, 0, W, H);
   }
 
-  const drawImageContain = (
-    img: HTMLImageElement,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ) => {
-    const ir = img.width / img.height;
-    const tr = w / h;
-    let dw: number;
-    let dh: number;
-    if (ir > tr) {
-      dw = w;
-      dh = w / ir;
-    } else {
-      dh = h;
-      dw = h * ir;
-    }
-    const dx = x + (w - dw) / 2;
-    const dy = y + (h - dh) / 2;
-    ctx.drawImage(img, dx, dy, dw, dh);
-  };
+	
 
   const drawImageCover = (
     img: HTMLImageElement,

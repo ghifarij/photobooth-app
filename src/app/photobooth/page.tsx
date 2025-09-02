@@ -122,7 +122,6 @@ function PhotoboothInner() {
     if (!ctx) return;
     // Use high quality resampling when drawing from the video
     ctx.imageSmoothingEnabled = true;
-    // @ts-expect-error - imageSmoothingQuality not in older TS lib DOM types
     ctx.imageSmoothingQuality = "high";
     // Mirror horizontally so the capture matches the preview
     ctx.save();

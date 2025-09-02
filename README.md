@@ -35,13 +35,6 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
 
-## Cloudinary Uploads and QR
+## Sharing & Downloads (Local Only)
 
-The result page uploads the composed photostrip to Cloudinary and shows a QR that links to the shareable URL.
-
-Configure one of the following for production:
-
-- Signed upload via API route (recommended): set server env vars `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
-- Unsigned client upload fallback: set `NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME` and `NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET` (an unsigned preset in your Cloudinary account). The app falls back to this if the signed route isn’t configured.
-
-Optional: `CLOUDINARY_FOLDER` to group uploads (e.g., `photobooth`). If using unsigned uploads, ensure the preset permits that folder or is preconfigured with one.
+This app composes the photostrip entirely in the browser and provides a PNG for download or sharing (via the Web Share API when available). Cloud uploads and QR sharing have been removed for a fully local workflow.
