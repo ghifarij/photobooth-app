@@ -26,6 +26,10 @@ export function composeStrip(
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
+  // Prefer high quality resampling for all drawImage calls
+  ctx.imageSmoothingEnabled = true;
+  // @ts-expect-error - not always typed in DOM lib
+  ctx.imageSmoothingQuality = "high";
 
   // Draw provided background if any; otherwise fill neutral
   if (opts.background) {

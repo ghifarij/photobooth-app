@@ -32,8 +32,6 @@ function PhotoResultInner() {
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [finalUrl, setFinalUrl] = useState<string | null>(presetUrl || null);
-  const [cloudUrl, setCloudUrl] = useState<string | null>(presetUrl || null);
-  const [uploading, setUploading] = useState(false);
   const [bg, setBg] = useState<HTMLImageElement | null>(null);
 
   useEffect(() => {
@@ -63,7 +61,7 @@ function PhotoResultInner() {
     }
   }, [session]);
 
-  // Load images and compose
+  // Load images and compose (no compression)
   useEffect(() => {
     (async () => {
       if (presetUrl) return; // pre-set URL, nothing to compose
@@ -86,187 +84,34 @@ function PhotoResultInner() {
         height: 4725,
         background: bg,
       });
-      // Compress to JPEG <= 2MB to satisfy Vercel upload limits
-      const MAX_BYTES = 2 * 1024 * 1024; // 2MB
-      const toBlob = (c: HTMLCanvasElement, quality: number) =>
-        new Promise<Blob | null>((resolve) =>
-          c.toBlob((b) => resolve(b), "image/jpeg", quality)
-        );
-      const blobToDataURL = (b: Blob) =>
-        new Promise<string>((resolve) => {
-          const fr = new FileReader();
-          fr.onload = () => resolve(String(fr.result));
-          fr.readAsDataURL(b);
-        });
-
-      // Use offscreen canvas for optional downscaling to avoid changing the UI canvas
-      const work = document.createElement("canvas");
-      work.width = canvas.width;
-      work.height = canvas.height;
-      const wctx = work.getContext("2d");
-      if (!wctx) return;
-      wctx.drawImage(canvas, 0, 0);
-
-      let scale = 1.0;
-      let bestDataUrl: string | null = null;
-      let attempts = 0;
-      while (attempts < 6) {
-        attempts++;
-        // Binary search quality between 0.5..0.95 for current scale
-        let lo = 0.5;
-        let hi = 0.95;
-        let chosen: { url: string; size: number } | null = null;
-        for (let i = 0; i < 6; i++) {
-          const q = (lo + hi) / 2;
-          const b = await toBlob(work, q);
-          if (!b) break;
-          const size = b.size;
-          const url = await blobToDataURL(b);
-          if (size <= MAX_BYTES) {
-            chosen = { url, size };
-            lo = q; // try higher quality within limit
-          } else {
-            hi = q; // decrease quality
-          }
-        }
-        if (chosen) {
-          bestDataUrl = chosen.url;
-          break;
-        }
-        // If no quality fits, downscale by 10% and retry
-        scale *= 0.9;
-        const nw = Math.max(200, Math.round(canvas.width * scale));
-        const nh = Math.max(200, Math.round(canvas.height * scale));
-        work.width = nw;
-        work.height = nh;
-        const ctx2 = work.getContext("2d");
-        if (!ctx2) break;
-        ctx2.drawImage(canvas, 0, 0, nw, nh);
-      }
-
-      // Fallback if all else fails
-      if (!bestDataUrl) {
-        const b = await toBlob(work, 0.5);
-        if (b) bestDataUrl = await blobToDataURL(b);
-      }
-
-      if (bestDataUrl) setFinalUrl(bestDataUrl);
+      // Export explicitly as PNG (lossless)
+      setFinalUrl(canvas.toDataURL("image/png"));
     })();
   }, [session, presetUrl, bg]);
-
-  // Upload composed image to Cloudinary once available
-  useEffect(() => {
-    (async () => {
-      if (presetUrl) return; // already have cloud URL
-      if (!finalUrl || cloudUrl || uploading) return;
-      try {
-        setUploading(true);
-        // First try server-side signed upload (preferred in prod)
-        const res = await fetch("/api/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: finalUrl, folder: "photobooth" }),
-        });
-        const ok = res.ok;
-        let data: { error?: string; secure_url?: string } | null = null;
-        try {
-          data = await res.json();
-        } catch {}
-        if (!ok) {
-          // Fallback to client-side unsigned upload when server env isn't configured in prod.
-          const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-          const unsignedPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-          if (!cloudName || !unsignedPreset) {
-            const msg = data?.error ||
-              "Upload failed and unsigned preset is not configured";
-            throw new Error(msg);
-          }
-          const form = new FormData();
-          form.append("file", finalUrl);
-          form.append("upload_preset", unsignedPreset as string);
-          // Optional: keep same folder name if your preset allows it
-          form.append("folder", "photobooth");
-          const direct = await fetch(
-            `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-            { method: "POST", body: form }
-          );
-          const djson = await direct.json();
-          if (!direct.ok) {
-            throw new Error(djson?.error?.message || "Unsigned upload failed");
-          }
-          setCloudUrl(djson.secure_url as string);
-        } else {
-          if (!data || !data.secure_url) {
-            throw new Error("Invalid upload response");
-          }
-          setCloudUrl(data.secure_url);
-        }
-      } catch (e: unknown) {
-        // If upload fails, keep local-only option
-        const message = e instanceof Error ? e.message : String(e);
-        console.error("Cloud upload failed:", message);
-      } finally {
-        setUploading(false);
-      }
-    })();
-  }, [finalUrl, cloudUrl, uploading, presetUrl]);
 
   const download = () => {
     if (!finalUrl) return;
     const a = document.createElement("a");
     a.href = finalUrl;
-    a.download = `photobooth-${id}.jpg`;
+    a.download = `photobooth-${id}.png`;
     a.click();
   };
 
   const share = async () => {
     if (!finalUrl) return;
-    // Try Web Share with file if supported
     try {
-      if (cloudUrl) {
-        await navigator.share({ url: cloudUrl, title: "Photobooth" });
-        return;
-      }
       const res = await fetch(finalUrl);
       const blob = await res.blob();
-      const file = new File([blob], `photobooth-${id}.jpg`, {
-        type: "image/jpeg",
-      });
+      const file = new File([blob], `photobooth-${id}.png`, { type: "image/png" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: "Photobooth" });
-        return;
       }
-    } catch {}
-    // Fallback: share the link to this page
-    try {
-      await navigator.share({
-        url: cloudUrl || window.location.href,
-        title: "Photobooth",
-      });
     } catch {
-      // ignore
+      // Sharing not supported; ignore
     }
   };
 
-  const [qrSrc, setQrSrc] = useState<string | null>(null);
-
-  // Compute QR only after a cloud URL exists to avoid a transient QR
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const base = window.location.origin;
-    // Only show QR once the Cloudinary URL (or presetUrl) is available.
-    const link = cloudUrl
-      ? `${base}/photo-result?url=${encodeURIComponent(cloudUrl)}`
-      : null;
-    if (!link) {
-      setQrSrc(null);
-      return;
-    }
-    const api = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-      link
-    )}`;
-    setQrSrc(api);
-  }, [cloudUrl]);
+  // QR code removed for local-only usage
 
   return (
     <main className="flex flex-col items-center">
@@ -310,26 +155,7 @@ function PhotoResultInner() {
                   </button>
                 </div>
 
-                {/* QR card: centered content, consistent styling */}
-                <div className="card w-full p-4 md:p-5 2xl:p-6 border border-[var(--border)] hover:-translate-y-px transition-transform duration-150 ease-out">
-                  <div className="flex flex-col items-center text-center gap-3">
-                    <div className="text-sm muted">Scan to open this result</div>
-                    <div className="w-40 h-40 2xl:w-48 2xl:h-48 bg-white border border-[var(--border)] rounded flex items-center justify-center overflow-hidden">
-                      {!uploading && qrSrc ? (
-                        <NextImage
-                          src={qrSrc}
-                          alt="QR code"
-                          width={200}
-                          height={200}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="text-xs muted">
-                      QR opens a cross‑device link. It appears once ready.
-                    </div>
-                  </div>
-                </div>
+                {null}
 
                 {/* Desktop-only: Take another photo card centered in remaining space */}
                 <div className="hidden md:flex flex-1 items-center">

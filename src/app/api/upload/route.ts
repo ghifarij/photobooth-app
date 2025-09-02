@@ -28,6 +28,20 @@ export async function POST(req: Request) {
     if (!image) {
       return NextResponse.json({ error: "Missing image" }, { status: 400 });
     }
+    // Safety: reject overly large data URLs to avoid excessive transfer out
+    // Rough size check for data URLs (base64): bytes ≈ (len - header) * 3 / 4
+    if (typeof image === "string" && image.startsWith("data:")) {
+      const comma = image.indexOf(",");
+      const b64 = comma !== -1 ? image.slice(comma + 1) : "";
+      const approxBytes = Math.floor((b64.length * 3) / 4);
+      const MAX_BYTES = 3 * 1024 * 1024; // 3 MB server-side cap
+      if (approxBytes > MAX_BYTES) {
+        return NextResponse.json(
+          { error: "Image too large. Please retry (under 3MB)." },
+          { status: 413 }
+        );
+      }
+    }
 
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;

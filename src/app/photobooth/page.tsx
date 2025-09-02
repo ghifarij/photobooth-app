@@ -59,8 +59,9 @@ function PhotoboothInner() {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            // Prefer higher resolution capture for better final quality
+            width: { min: 1280, ideal: 2560, max: 4096 },
+            height: { min: 720, ideal: 1440, max: 4096 },
           },
           audio: false,
         });
@@ -119,13 +120,16 @@ function PhotoboothInner() {
     c.height = h;
     const ctx = c.getContext("2d");
     if (!ctx) return;
+    // Use high quality resampling when drawing from the video
+    ctx.imageSmoothingEnabled = true;
+    // @ts-expect-error - imageSmoothingQuality not in older TS lib DOM types
+    ctx.imageSmoothingQuality = "high";
     // Mirror horizontally so the capture matches the preview
     ctx.save();
     ctx.translate(w, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(v, 0, 0, w, h);
     ctx.restore();
-    // Use JPEG to significantly reduce size and avoid localStorage quota errors
     // Preserve original capture fidelity (PNG, no downscaling)
     const url = c.toDataURL("image/png");
     setTaken((arr) => [...arr, url]);
